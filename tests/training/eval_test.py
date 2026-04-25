@@ -1,0 +1,91 @@
+import numpy as np
+import mlflow
+import pandas as pd
+
+from ssdf.training.eval import (
+    get_train_test_sets,
+    rmsle,
+    get_cv_avg_predictions,
+    run,
+)
+
+
+def test_get_train_test_sets(training_data):
+    fh = 3
+    train, test = get_train_test_sets(training_data, fh=fh)
+
+    assert len(test["date"].unique()) == fh
+    assert train.columns.values.tolist() == training_data.columns.values.tolist()
+
+
+def test_rmsle():
+    y_true = pd.Series([10.0, 20.0, 30.0])
+    y_pred = pd.Series([12.0, 18.0, -5.0])  # Negative prediction to test handling
+    score = rmsle(y_true, y_pred)
+    assert isinstance(score, float)
+    assert score >= 0
+
+
+def test_get_cv_avg_predictions(training_data):
+    # Create mock cv dataframe
+    cv_df = pd.DataFrame(
+        {
+            "unique_id": ["1_A", "1_A", "2_B", "2_B"],
+            "date": pd.to_datetime(
+                ["2020-01-01", "2020-01-02", "2020-01-01", "2020-01-02"]
+            ),
+            "cutoff": pd.to_datetime(
+                ["2019-12-31", "2019-12-31", "2019-12-31", "2019-12-31"]
+            ),
+            "sales": [10.0, 20.0, 30.0, 40.0],
+            "forecaster": [12.0, 18.0, 28.0, 42.0],
+        }
+    )
+
+    comparison_list = get_cv_avg_predictions(training_data, cv_df)
+
+    assert len(comparison_list) == 2  # true + 1 fold
+    assert "store_1" in comparison_list[0].columns
+
+
+def test_run(monkeypatch, training_data, mlflow_configs, forecaster):
+    monkeypatch.setattr(
+        "ssdf.training.eval.np.random.choice", lambda *args, **kwargs: np.array([1, 2])
+    )
+    monkeypatch.setattr(
+        "ssdf.training.eval.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+    )
+
+    result, mlflow_run = run(forecaster, training_data, fh=3, k=2)
+
+    assert isinstance(result, pd.DataFrame)
+    assert isinstance(mlflow_run, mlflow.entities.Run)
+
+    assert "avg_cv_rmsle" in mlflow_run.data.metrics, (
+        f"avg_cv_rmsle not found in metrics: {mlflow_run.data.metrics}"
+    )
+    assert "std_cv_rmsle" in mlflow_run.data.metrics, (
+        f"std_cv_rmsle not found in metrics: {mlflow_run.data.metrics}"
+    )
+    assert "test_rmsle" in mlflow_run.data.metrics, (
+        f"test_rmsle not found in metrics: {mlflow_run.data.metrics}"
+    )
+    assert "model_name" in mlflow_run.data.tags, (
+        f"model_name not found in tags: {mlflow_run.data.tags}"
+    )
+    assert len(mlflow_run.inputs.dataset_inputs), (
+        f"No dataset inputs found in run: {mlflow_run.inputs.dataset_inputs}"
+    )
+
+    client = mlflow.MlflowClient()
+    cv_artifacts = [
+        a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/cv")
+    ]
+    assert "plots/cv/avg_sales_store_1.png" in cv_artifacts
+    assert "plots/cv/avg_sales_store_2.png" in cv_artifacts
+
+    test_artifacts = [
+        a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/test")
+    ]
+    assert "plots/test/avg_sales_store_1.png" in test_artifacts
+    assert "plots/test/avg_sales_store_2.png" in test_artifacts
