@@ -23,8 +23,11 @@ def get_model(model_uri: str | None = None) -> MLForecast:
 
 
 def get_features(future_df: pd.DataFrame) -> pd.DataFrame:
-    features = pd.read_parquet(FEATURES_DATA_DIR / "features.parquet")
-    features = future_df.merge(features, on=["unique_id", "date"]).drop(
+    min_date = future_df["date"].min()
+    features = pd.read_parquet(
+        FEATURES_DATA_DIR / "features.parquet", filters=[("date", ">=", min_date)]
+    )
+    features = features.merge(future_df, on=["unique_id", "date"]).drop(
         columns=STATIC_FEATURES
     )
     return features
@@ -64,4 +67,5 @@ def run(model_uri: str | None = None):
 
 
 if __name__ == "__main__":
-    run()
+    model_uri = "models:/m-b5dcb1ca35a547c4b370764cbe5e0274"
+    run(model_uri=model_uri)
