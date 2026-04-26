@@ -1,7 +1,21 @@
 import mlflow
+import pandas as pd
 from mlforecast import MLForecast
 
-from ssdf.training.train import run
+from ssdf.config import STATIC_FEATURES
+from ssdf.training.train import get_data, run
+
+
+def test_get_data(tmp_path, monkeypatch, training_data):
+    training_data.drop(["store_nbr", "family", "onpromotion"], axis=1).to_parquet(
+        tmp_path / "target.parquet"
+    )
+    training_data.drop("sales", axis=1).to_parquet(tmp_path / "features.parquet")
+    monkeypatch.setattr("ssdf.training.train.FEATURES_DATA_DIR", tmp_path)
+
+    df = get_data()
+
+    pd.testing.assert_frame_equal(df, training_data)
 
 
 def test_start_new_run(monkeypatch, training_data, mlflow_configs):
@@ -12,7 +26,7 @@ def test_start_new_run(monkeypatch, training_data, mlflow_configs):
         "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
-    forecaster, mlflow_run = run(training_data)
+    forecaster, mlflow_run = run(training_data, static_features=STATIC_FEATURES)
 
     assert isinstance(forecaster, MLForecast)
     assert isinstance(mlflow_run, mlflow.entities.Run)
@@ -32,7 +46,7 @@ def test_continue_run(monkeypatch, training_data, mlflow_configs):
     mlflow.set_experiment(mlflow_configs["experiment_name"])
 
     with mlflow.start_run() as first_run:
-        mlflow.set_tag("model_name", "SeasonalNaive")
+        mlflow.set_tag("model_name", "ModelName")
         mlflow.log_input(
             mlflow.data.from_pandas(
                 training_data,
@@ -43,7 +57,9 @@ def test_continue_run(monkeypatch, training_data, mlflow_configs):
         )
         first_run_id = first_run.info.run_id
 
-    forecaster, second_run = run(training_data, exp_run_id=first_run_id)
+    forecaster, second_run = run(
+        training_data, static_features=STATIC_FEATURES, exp_run_id=first_run_id
+    )
     first_run = mlflow.get_run(first_run_id)
 
     assert second_run.info.run_id == first_run_id

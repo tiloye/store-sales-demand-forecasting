@@ -1,42 +1,37 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 import pandas as pd
 import mlflow
 from mlforecast import MLForecast, flavor
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.compose import ColumnTransformer
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn.pipeline import make_pipeline
 
 from ssdf.config import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME, FEATURES_DATA_DIR
 
-if TYPE_CHECKING:
-    from pathlib import Path
+
+def get_data() -> pd.DataFrame:
+    target = pd.read_parquet(FEATURES_DATA_DIR / "target.parquet")
+    features = pd.read_parquet(FEATURES_DATA_DIR / "features.parquet")
+    df = pd.merge(target, features, on=["unique_id", "date"])
+    cols = ["unique_id", "date", "sales"] + [
+        f for f in features.columns if f not in ["unique_id", "date"]
+    ]
+    return df[cols]
 
 
-def get_data():
-    path = FEATURES_DATA_DIR / "target.parquet"
-    return pd.read_parquet(path)
-
-
-class SeasonalNaiveRegressor(BaseEstimator, RegressorMixin):
-    def __init__(self, sp: int = 7):
-        self.sp = sp
-
-    def fit(self, X, y=None):
-        return self
-
-    def predict(self, X):
-        if hasattr(X, "columns") and f"lag{self.sp}" in X.columns:
-            return X[f"lag{self.sp}"].values
-        else:
-            raise ValueError(f"No lag{self.sp} feature found in X")
-
-
-def get_model():
+def get_model() -> MLForecast:
+    regressor = DecisionTreeRegressor(max_depth=10, random_state=42)
+    encoder = OrdinalEncoder()
+    ctransformer = ColumnTransformer(
+        [("encoder", encoder, ["store_nbr", "family"])],
+        remainder="passthrough",
+    )
+    pipeline = make_pipeline(ctransformer, regressor)
     forecaster = MLForecast(
-        models={"forecaster": SeasonalNaiveRegressor()},
+        models={"forecaster": pipeline},
         freq="D",
-        lags=[7],
+        lags=list(range(1, 17)),
+        num_threads=4,
     )
     return forecaster
 
@@ -44,7 +39,6 @@ def get_model():
 def run(
     df,
     static_features: list[str] | None = None,
-    data_source: str | Path | None = None,
     model_name: str | None = None,
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
@@ -86,5 +80,7 @@ def run(
 
 
 if __name__ == "__main__":
+    from ssdf.config import STATIC_FEATURES
+
     df = get_data()
-    run(df)
+    run(df, static_features=STATIC_FEATURES)

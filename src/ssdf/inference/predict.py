@@ -7,6 +7,8 @@ from ssdf.config import (
     MLFLOW_MODEL_REGISTRY_NAME,
     PREDICTIONS_DIR,
     FH,
+    FEATURES_DATA_DIR,
+    STATIC_FEATURES,
 )
 
 if TYPE_CHECKING:
@@ -20,9 +22,18 @@ def get_model(model_uri: str | None = None) -> MLForecast:
     return flavor.load_model(model_uri=model_uri)
 
 
+def get_features(future_df: pd.DataFrame) -> pd.DataFrame:
+    features = pd.read_parquet(FEATURES_DATA_DIR / "features.parquet")
+    features = future_df.merge(features, on=["unique_id", "date"]).drop(
+        columns=STATIC_FEATURES
+    )
+    return features
+
+
 def generate_forecasts(model_uri: str | None = None, fh: int = FH) -> pd.DataFrame:
     forecaster = get_model(model_uri)
-    return forecaster.predict(h=fh)
+    X_df = get_features(forecaster.make_future_dataframe(h=fh))
+    return forecaster.predict(h=fh, X_df=X_df)
 
 
 def save_forecasts(forecasts: pd.DataFrame, path: Path) -> None:

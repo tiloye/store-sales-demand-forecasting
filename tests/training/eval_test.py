@@ -4,6 +4,7 @@ import pandas as pd
 from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
+from ssdf.config import STATIC_FEATURES
 from ssdf.training.eval import (
     get_train_test_sets,
     rmsle,
@@ -64,7 +65,9 @@ def test_run(monkeypatch, training_data, mlflow_configs):
         lags=[3],
     )
 
-    result, mlflow_run = run(forecaster, training_data, fh=3, k=2)
+    result, mlflow_run = run(
+        forecaster, training_data, fh=3, static_features=STATIC_FEATURES, k=2
+    )
 
     assert isinstance(result, pd.DataFrame)
     assert isinstance(mlflow_run, mlflow.entities.Run)

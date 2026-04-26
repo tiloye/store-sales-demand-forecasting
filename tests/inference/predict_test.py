@@ -3,9 +3,10 @@ import pytest
 import pandas as pd
 from mlforecast import MLForecast, flavor
 from sklearn.dummy import DummyRegressor
-from ssdf.config import MLFLOW_MODEL_REGISTRY_NAME
+from ssdf.config import MLFLOW_MODEL_REGISTRY_NAME, STATIC_FEATURES
 from ssdf.inference.predict import (
     get_model,
+    get_features,
     generate_forecasts,
     save_forecasts,
 )
@@ -29,14 +30,19 @@ def train_model(training_data, mlflow_configs):
             id_col="unique_id",
             time_col="date",
             target_col="sales",
+            static_features=STATIC_FEATURES,
         )
         model_info = flavor.log_model(forecaster, forecaster.__class__.__name__)
 
     model_id = model_info.model_id
     model_uri = f"models:/{model_id}"
-    mlflow.register_model(model_uri=model_uri, name=MLFLOW_MODEL_REGISTRY_NAME)
+    model_version = mlflow.register_model(
+        model_uri=model_uri, name=MLFLOW_MODEL_REGISTRY_NAME
+    )
     mlflow.MlflowClient().set_registered_model_alias(
-        name=MLFLOW_MODEL_REGISTRY_NAME, alias="production", version="1"
+        name=MLFLOW_MODEL_REGISTRY_NAME,
+        alias="production",
+        version=model_version.version,
     )
     return model_id
 
@@ -49,7 +55,23 @@ def test_get_model(train_model):
         assert "forecaster" in model.models
 
 
-def test_generate_forecast(train_model):
+def test_get_features(features_data, tmp_path, monkeypatch):
+    features_data.to_parquet(tmp_path / "features.parquet", index=False)
+    future_df = features_data.drop(["store_nbr", "family", "onpromotion"], axis=1)
+    future_df = future_df.loc[future_df["date"] > "2023-01-30"].reset_index(drop=True)
+    monkeypatch.setattr("ssdf.inference.predict.FEATURES_DATA_DIR", tmp_path)
+
+    features = get_features(future_df)
+    expected_df = features_data.loc[
+        features_data["date"] > "2023-01-30",
+        ["unique_id", "date", "onpromotion"],
+    ].reset_index(drop=True)
+    pd.testing.assert_frame_equal(features, expected_df)
+
+
+def test_generate_forecast(train_model, features_data, tmp_path, monkeypatch):
+    features_data.to_parquet(tmp_path / "features.parquet", index=False)
+    monkeypatch.setattr("ssdf.inference.predict.FEATURES_DATA_DIR", tmp_path)
 
     forecasts = generate_forecasts(fh=3)
 

@@ -148,7 +148,9 @@ def run(
             target_col="sales",
             static_features=static_features,
         )
-        y_pred = forecaster.predict(h=fh)
+        y_pred = forecaster.predict(
+            h=fh, X_df=test.drop(["sales"] + static_features, axis=1)
+        )
 
         test_merged = test.merge(y_pred, on=["unique_id", "date"], how="inner")
         test_rmsle = rmsle(test_merged["sales"], test_merged["forecaster"])

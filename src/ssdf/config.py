@@ -15,3 +15,4 @@ MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME")
 MLFLOW_MODEL_REGISTRY_NAME = "store-sales-forecaster"
 
 FH = 16
+STATIC_FEATURES = ["store_nbr", "family"]
