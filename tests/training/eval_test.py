@@ -1,6 +1,8 @@
 import numpy as np
 import mlflow
 import pandas as pd
+from mlforecast import MLForecast
+from sklearn.dummy import DummyRegressor
 
 from ssdf.training.eval import (
     get_train_test_sets,
@@ -48,12 +50,18 @@ def test_get_cv_avg_predictions(training_data):
     assert "store_1" in comparison_list[0].columns
 
 
-def test_run(monkeypatch, training_data, mlflow_configs, forecaster):
+def test_run(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
         "ssdf.training.eval.np.random.choice", lambda *args, **kwargs: np.array([1, 2])
     )
     monkeypatch.setattr(
         "ssdf.training.eval.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+    )
+
+    forecaster = MLForecast(
+        models={"forecaster": DummyRegressor()},
+        freq="D",
+        lags=[3],
     )
 
     result, mlflow_run = run(forecaster, training_data, fh=3, k=2)

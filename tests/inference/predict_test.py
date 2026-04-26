@@ -2,23 +2,28 @@ import mlflow
 import pytest
 import pandas as pd
 from mlforecast import MLForecast, flavor
+from sklearn.dummy import DummyRegressor
 from ssdf.config import MLFLOW_MODEL_REGISTRY_NAME
 from ssdf.inference.predict import (
     get_model,
     generate_forecasts,
     save_forecasts,
 )
-from ssdf.training.train import SeasonalNaiveRegressor  # noqa: F401 (needed to successfully load model from mlflow registry)
 
 
 @pytest.fixture
-def train_model(training_data, mlflow_configs, forecaster):
+def train_model(training_data, mlflow_configs):
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
     mlflow.set_experiment(mlflow_configs["experiment_name"])
 
     data = training_data
 
     with mlflow.start_run():
+        forecaster = MLForecast(
+            models={"forecaster": DummyRegressor()},
+            freq="D",
+            lags=[3],
+        )
         forecaster.fit(
             data,
             id_col="unique_id",

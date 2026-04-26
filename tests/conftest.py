@@ -1,19 +1,7 @@
 import numpy as np
 import pytest
 import pandas as pd
-from mlforecast import MLForecast
 from ssdf.features.utils import prep_mlforecast_data
-from ssdf.training.train import SeasonalNaiveRegressor
-
-
-@pytest.fixture
-def forecaster():
-    forecaster_ = MLForecast(
-        models={"forecaster": SeasonalNaiveRegressor(sp=3)},
-        freq="D",
-        lags=[3],
-    )
-    return forecaster_
 
 
 @pytest.fixture
