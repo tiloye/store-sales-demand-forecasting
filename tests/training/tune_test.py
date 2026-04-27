@@ -67,3 +67,6 @@ def test_run_tuning(monkeypatch, training_data, mlflow_configs):
         ]
         assert "plots/cv/avg_sales_store_1.png" in cv_artifacts
         assert "plots/cv/avg_sales_store_2.png" in cv_artifacts
+
+    # Verify best_model artifact is logged
+    assert len(mlflow_run.outputs.model_outputs) > 0

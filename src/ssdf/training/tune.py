@@ -5,7 +5,7 @@ import copy
 import mlflow
 import pandas as pd
 from joblib import Parallel, delayed
-from mlforecast import MLForecast
+from mlforecast import MLForecast, flavor
 from sklearn.model_selection import ParameterGrid
 
 from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
@@ -57,6 +57,7 @@ def run_tuning(
     fh: int = FH,
     k: int = 5,
     n_jobs: int = 1,
+    model_name: str | None = None,
     exp_run_name: str | None = None,
 ) -> tuple[dict, mlflow.entities.Run]:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -117,6 +118,10 @@ def run_tuning(
         mlflow.log_metric("test_rmsle", test_rmsle)
         for fig_name, fig in test_plots.items():
             mlflow.log_figure(fig, f"plots/test/{fig_name}.png")
+
+        print("Logging best model artifact to MLflow...")
+        model_name = model_name or forecaster.models["forecaster"].__class__.__name__
+        flavor.log_model(forecaster, model_name)
 
     return best_params, mlflow.get_run(parent_run.info.run_id)
 

@@ -6,6 +6,25 @@ from ssdf.config import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME, FEATURES_DA
 from ssdf.training.model import get_model
 
 
+def get_best_model_id_from_mlflow(experiment_name: str) -> str | None:
+    client = mlflow.MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    if not experiment:
+        return None
+
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string="metrics.test_rmsle >= 0",
+        order_by=["metrics.test_rmsle ASC"],
+        max_results=1,
+    )
+
+    if not runs:
+        return None
+
+    return runs[0].outputs.model_outputs[0].model_id
+
+
 def get_data() -> pd.DataFrame:
     target = pd.read_parquet(FEATURES_DATA_DIR / "target.parquet")
     features = pd.read_parquet(FEATURES_DATA_DIR / "features.parquet")
@@ -22,11 +41,23 @@ def run(
     model_name: str | None = None,
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
+    pull_best_model: bool = False,
 ) -> tuple[MLForecast, mlflow.entities.Run]:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-    forecaster = get_model()
+    if pull_best_model:
+        print("Pulling best model artifact from MLflow...")
+        best_model_id = get_best_model_id_from_mlflow(MLFLOW_EXPERIMENT_NAME)
+        if best_model_id:
+            print(f"Loading best model from model_id: {best_model_id}")
+            forecaster = flavor.load_model(f"models:/{best_model_id}")
+        else:
+            print("No best model found in MLflow. Using defaults.")
+            forecaster = get_model()
+    else:
+        forecaster = get_model()
+
     with mlflow.start_run(run_id=exp_run_id, run_name=exp_run_name) as run_env:
         model_name = (
             forecaster.models["forecaster"].__class__.__name__
