@@ -1,12 +1,9 @@
 import pandas as pd
 import mlflow
 from mlforecast import MLForecast, flavor
-from sklearn.compose import ColumnTransformer
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.preprocessing import OrdinalEncoder
-from sklearn.pipeline import make_pipeline
 
 from ssdf.config import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME, FEATURES_DATA_DIR
+from ssdf.training.model import get_model
 
 
 def get_data() -> pd.DataFrame:
@@ -17,24 +14,6 @@ def get_data() -> pd.DataFrame:
         f for f in features.columns if f not in ["unique_id", "date"]
     ]
     return df[cols]
-
-
-def get_model() -> MLForecast:
-    regressor = DecisionTreeRegressor(max_depth=10, random_state=42)
-    encoder = OrdinalEncoder()
-    ctransformer = ColumnTransformer(
-        [("encoder", encoder, ["store_nbr", "family"])],
-        remainder="passthrough",
-    )
-    pipeline = make_pipeline(ctransformer, regressor)
-    forecaster = MLForecast(
-        models={"forecaster": pipeline},
-        freq="D",
-        lags=list(range(1, 17)),
-        date_features=["dayofweek"],
-        num_threads=4,
-    )
-    return forecaster
 
 
 def run(
