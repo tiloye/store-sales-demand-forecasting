@@ -74,6 +74,104 @@ def plot_avg_sales(data_list: list[pd.DataFrame], store_nbr: int):
     return fig, ax
 
 
+def eval_val_sets(
+    forecaster: MLForecast,
+    train: pd.DataFrame,
+    fh: int = FH,
+    k: int = 5,
+    static_features: list[str] | None = None,
+) -> tuple[dict[str, float], dict[str, plt.Figure]]:
+    cv_res = forecaster.cross_validation(
+        df=train,
+        n_windows=k,
+        step_size=fh,
+        h=fh,
+        id_col="unique_id",
+        time_col="date",
+        target_col="sales",
+        static_features=static_features,
+    )
+
+    # Calculate RMSLE for each fold
+    fold_metrics = []
+    for cutoff in cv_res["cutoff"].unique():
+        fold_df = cv_res[cv_res["cutoff"] == cutoff]
+        score = rmsle(fold_df["sales"], fold_df["forecaster"])
+        fold_metrics.append(score)
+
+    mean_rmsle = max(0, np.mean(fold_metrics))
+    std_rmsle = max(0, np.std(fold_metrics))
+    print("Average RMSLE across all folds:", mean_rmsle)
+    print("Standard deviation of RMSLE across all folds:", std_rmsle)
+    metrics = {"avg_cv_rmsle": mean_rmsle, "std_cv_rmsle": std_rmsle}
+
+    print("Plotting average daily sales for random stores from cross validation result")
+    comparison_list = get_cv_avg_predictions(train, cv_res)
+    stores = np.random.choice(np.arange(1, 55), size=5)
+    cv_plots = {}
+    for store_nbr in stores:
+        fig, ax = plot_avg_sales(comparison_list, store_nbr)
+        cv_plots[f"avg_sales_store_{store_nbr}"] = fig
+    return metrics, cv_plots
+
+
+def eval_test_set(
+    forecaster: MLForecast,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    fh: int = FH,
+    static_features: list[str] | None = None,
+) -> tuple[float, dict[str, plt.Figure]]:
+    forecaster.fit(
+        train,
+        id_col="unique_id",
+        time_col="date",
+        target_col="sales",
+        static_features=static_features,
+    )
+    y_pred = forecaster.predict(
+        h=fh, X_df=test.drop(["sales"] + static_features, axis=1)
+    )
+
+    test_merged = test.merge(y_pred, on=["unique_id", "date"], how="inner")
+    test_rmsle = rmsle(test_merged["sales"], test_merged["forecaster"])
+    print("Test RMSLE:", test_rmsle)
+
+    print("Plotting average daily sales for random stores from test set...")
+
+    test_true_pred = test_merged.copy()
+    test_true_pred[["store_nbr", "family"]] = test_true_pred["unique_id"].str.split(
+        "_", expand=True
+    )
+    test_true_pred["store_nbr"] = test_true_pred["store_nbr"].astype(int)
+
+    true_test_avg = get_avg_daily_sales(test_true_pred[["store_nbr", "date", "sales"]])
+    pred_test_avg = get_avg_daily_sales(
+        test_true_pred[["store_nbr", "date", "forecaster"]].rename(
+            columns={"forecaster": "sales"}
+        )
+    )
+
+    train_hist = train[
+        train["date"] >= test_merged["date"].min() - pd.Timedelta(days=16)
+    ].copy()
+    train_hist[["store_nbr", "family"]] = train_hist["unique_id"].str.split(
+        "_", expand=True
+    )
+    train_hist_avg = get_avg_daily_sales(train_hist[["store_nbr", "date", "sales"]])
+
+    test_comparison_list = [
+        pd.concat([train_hist_avg, true_test_avg]),
+        pred_test_avg,
+    ]
+    stores = np.random.choice(np.arange(1, 55), size=5)
+    test_plots = {}
+    for store_nbr in stores:
+        fig, ax = plot_avg_sales(test_comparison_list, store_nbr)
+        test_plots[f"avg_sales_store_{store_nbr}"] = fig
+    return test_rmsle, test_plots
+
+
 def run(
     forecaster: MLForecast,
     df: pd.DataFrame,
@@ -105,94 +203,22 @@ def run(
         mlflow.log_input(dataset, context="training")
 
         print(f"Evaluating forecaster on {k} validation set(s)...")
-        cv_res = forecaster.cross_validation(
-            df=train,
-            n_windows=k,
-            step_size=fh,
-            h=fh,
-            id_col="unique_id",
-            time_col="date",
-            target_col="sales",
-            static_features=static_features,
+        metrics, cv_plots = eval_val_sets(
+            forecaster, train, fh=fh, k=k, static_features=static_features
         )
-
-        # Calculate RMSLE for each fold
-        fold_metrics = []
-        for cutoff in cv_res["cutoff"].unique():
-            fold_df = cv_res[cv_res["cutoff"] == cutoff]
-            score = rmsle(fold_df["sales"], fold_df["forecaster"])
-            fold_metrics.append(score)
-
-        mean_rmsle = max(0, np.mean(fold_metrics))
-        std_rmsle = max(0, np.std(fold_metrics))
-        print("Average RMSLE across all folds:", mean_rmsle)
-        print("Standard deviation of RMSLE across all folds:", std_rmsle)
-        mlflow.log_metric("avg_cv_rmsle", mean_rmsle)
-        mlflow.log_metric("std_cv_rmsle", std_rmsle)
-
-        print(
-            "Plotting average daily sales for random stores from cross validation result"
-        )
-        comparison_list = get_cv_avg_predictions(train, cv_res)
-        stores = np.random.choice(np.arange(1, 55), size=5)
-        for store_nbr in stores:
-            fig, ax = plot_avg_sales(comparison_list, store_nbr)
-            mlflow.log_figure(fig, f"plots/cv/avg_sales_store_{store_nbr}.png")
-            plt.close(fig)
+        mlflow.log_metrics(metrics)
+        for fig_name, fig in cv_plots.items():
+            mlflow.log_figure(fig, f"plots/cv/{fig_name}.png")
 
         print("Evaluating forecaster on test set...")
-        forecaster.fit(
-            train,
-            id_col="unique_id",
-            time_col="date",
-            target_col="sales",
-            static_features=static_features,
+        test_rmsle, test_plots = eval_test_set(
+            forecaster, train, test, fh=fh, static_features=static_features
         )
-        y_pred = forecaster.predict(
-            h=fh, X_df=test.drop(["sales"] + static_features, axis=1)
-        )
-
-        test_merged = test.merge(y_pred, on=["unique_id", "date"], how="inner")
-        test_rmsle = rmsle(test_merged["sales"], test_merged["forecaster"])
-        print("Test RMSLE:", test_rmsle)
         mlflow.log_metric("test_rmsle", test_rmsle)
+        for fig_name, fig in test_plots.items():
+            mlflow.log_figure(fig, f"plots/test/{fig_name}.png")
 
-        print("Plotting average daily sales for random stores from test set...")
-
-        test_true_pred = test_merged.copy()
-        test_true_pred[["store_nbr", "family"]] = test_true_pred["unique_id"].str.split(
-            "_", expand=True
-        )
-        test_true_pred["store_nbr"] = test_true_pred["store_nbr"].astype(int)
-
-        true_test_avg = get_avg_daily_sales(
-            test_true_pred[["store_nbr", "date", "sales"]]
-        )
-        pred_test_avg = get_avg_daily_sales(
-            test_true_pred[["store_nbr", "date", "forecaster"]].rename(
-                columns={"forecaster": "sales"}
-            )
-        )
-
-        train_hist = train[
-            train["date"] >= test_merged["date"].min() - pd.Timedelta(days=16)
-        ].copy()
-        train_hist[["store_nbr", "family"]] = train_hist["unique_id"].str.split(
-            "_", expand=True
-        )
-        train_hist_avg = get_avg_daily_sales(train_hist[["store_nbr", "date", "sales"]])
-
-        test_comparison_list = [
-            pd.concat([train_hist_avg, true_test_avg]),
-            pred_test_avg,
-        ]
-
-        for store_nbr in stores:
-            fig, ax = plot_avg_sales(test_comparison_list, store_nbr)
-            mlflow.log_figure(fig, f"plots/test/avg_sales_store_{store_nbr}.png")
-            plt.close(fig)
-
-    return cv_res, mlflow.get_run(eval_run.info.run_id)
+    return mlflow.get_run(eval_run.info.run_id)
 
 
 if __name__ == "__main__":

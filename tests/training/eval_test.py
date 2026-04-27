@@ -65,11 +65,10 @@ def test_run(monkeypatch, training_data, mlflow_configs):
         lags=[3],
     )
 
-    result, mlflow_run = run(
+    mlflow_run = run(
         forecaster, training_data, fh=3, static_features=STATIC_FEATURES, k=2
     )
 
-    assert isinstance(result, pd.DataFrame)
     assert isinstance(mlflow_run, mlflow.entities.Run)
 
     assert "avg_cv_rmsle" in mlflow_run.data.metrics, (
