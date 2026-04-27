@@ -112,6 +112,7 @@ def eval_val_sets(
     for store_nbr in stores:
         fig, ax = plot_avg_sales(comparison_list, store_nbr)
         cv_plots[f"avg_sales_store_{store_nbr}"] = fig
+        plt.close(fig)
     return metrics, cv_plots
 
 
@@ -169,6 +170,7 @@ def eval_test_set(
     for store_nbr in stores:
         fig, ax = plot_avg_sales(test_comparison_list, store_nbr)
         test_plots[f"avg_sales_store_{store_nbr}"] = fig
+        plt.close(fig)
     return test_rmsle, test_plots
 
 

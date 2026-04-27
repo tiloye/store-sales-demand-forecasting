@@ -29,13 +29,11 @@ def _eval_param_set(
     model = forecaster_copy.models["forecaster"]
     model.set_params(**params)
 
-    client = mlflow.MlflowClient(tracking_uri=tracking_uri)
-    run = client.create_run(
+    with mlflow.start_run(
         experiment_id=experiment_id,
+        nested=True,
         tags={"mlflow.parentRunId": parent_run_id},
-    )
-
-    with mlflow.start_run(run_id=run.info.run_id):
+    ):
         mlflow.log_params(model.get_params())
         print(f"Evaluating parameters: {params}")
         metrics, cv_plots = eval_val_sets(
@@ -110,8 +108,8 @@ def run_tuning(
         mlflow.log_metric("best_avg_cv_rmsle", best_score)
 
         print("Evaluating best model on test set...")
-        for name, model in forecaster.models.items():
-            model.set_params(**best_params)
+        forecaster.models["forecaster"].set_params(**best_params)
+        mlflow.log_params(forecaster.models["forecaster"].get_params())
 
         test_rmsle, test_plots = eval_test_set(
             forecaster, train, test, fh=fh, static_features=static_features
