@@ -7,20 +7,8 @@ import pandas as pd
 from sklearn.metrics import root_mean_squared_log_error
 
 from mlforecast import MLForecast
-from ssdf.training.utils import get_avg_daily_sales
 from ssdf.config import FH, MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME
-
-
-def get_train_test_sets(
-    df: pd.DataFrame, fh: int = FH
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    df = df.copy()
-    max_date = df["date"].max()
-    test_start = max_date - pd.Timedelta(days=fh - 1)
-
-    train = df[df["date"] < test_start].copy()
-    test = df[df["date"] >= test_start].copy()
-    return train, test
+from ssdf.training.utils import get_avg_daily_sales, get_train_test_sets
 
 
 def rmsle(y_true, y_pred):
@@ -74,15 +62,17 @@ def plot_avg_sales(data_list: list[pd.DataFrame], store_nbr: int):
     return fig, ax
 
 
-def eval_val_sets(
+def cross_validate(
     forecaster: MLForecast,
-    train: pd.DataFrame,
+    df: pd.DataFrame,
     fh: int = FH,
     k: int = 5,
     static_features: list[str] | None = None,
+    refit: bool = False,
+    backtest: bool = False,
 ) -> tuple[dict[str, float], dict[str, plt.Figure]]:
     cv_res = forecaster.cross_validation(
-        df=train,
+        df=df,
         n_windows=k,
         step_size=fh,
         h=fh,
@@ -90,6 +80,7 @@ def eval_val_sets(
         time_col="date",
         target_col="sales",
         static_features=static_features,
+        refit=refit,
     )
 
     # Calculate RMSLE for each fold
@@ -103,75 +94,21 @@ def eval_val_sets(
     std_rmsle = max(0, np.std(fold_metrics))
     print("Average RMSLE across all folds:", mean_rmsle)
     print("Standard deviation of RMSLE across all folds:", std_rmsle)
-    metrics = {"avg_cv_rmsle": mean_rmsle, "std_cv_rmsle": std_rmsle}
+    metrics = {
+        f"avg_{'test' if backtest else 'cv'}_rmsle": mean_rmsle,
+        f"std_{'test' if backtest else 'cv'}_rmsle": std_rmsle,
+    }
 
-    print("Plotting average daily sales for random stores from cross validation result")
-    comparison_list = get_cv_avg_predictions(train, cv_res)
+    print(
+        f"Plotting average daily sales for random stores from {'test' if backtest else 'cross validation'} result"
+    )
+    comparison_list = get_cv_avg_predictions(df, cv_res)
     stores = np.random.choice(np.arange(1, 55), size=5)
-    cv_plots = {}
+    plots = {}
     for store_nbr in stores:
         fig, ax = plot_avg_sales(comparison_list, store_nbr)
-        cv_plots[f"avg_sales_store_{store_nbr}"] = fig
-        plt.close(fig)
-    return metrics, cv_plots
-
-
-def eval_test_set(
-    forecaster: MLForecast,
-    train: pd.DataFrame,
-    test: pd.DataFrame,
-    fh: int = FH,
-    static_features: list[str] | None = None,
-) -> tuple[float, dict[str, plt.Figure]]:
-    forecaster.fit(
-        train,
-        id_col="unique_id",
-        time_col="date",
-        target_col="sales",
-        static_features=static_features,
-    )
-    y_pred = forecaster.predict(
-        h=fh, X_df=test.drop(["sales"] + static_features, axis=1)
-    )
-
-    test_merged = test.merge(y_pred, on=["unique_id", "date"], how="inner")
-    test_rmsle = rmsle(test_merged["sales"], test_merged["forecaster"])
-    print("Test RMSLE:", test_rmsle)
-
-    print("Plotting average daily sales for random stores from test set...")
-
-    test_true_pred = test_merged.copy()
-    test_true_pred[["store_nbr", "family"]] = test_true_pred["unique_id"].str.split(
-        "_", expand=True
-    )
-    test_true_pred["store_nbr"] = test_true_pred["store_nbr"].astype(int)
-
-    true_test_avg = get_avg_daily_sales(test_true_pred[["store_nbr", "date", "sales"]])
-    pred_test_avg = get_avg_daily_sales(
-        test_true_pred[["store_nbr", "date", "forecaster"]].rename(
-            columns={"forecaster": "sales"}
-        )
-    )
-
-    train_hist = train[
-        train["date"] >= test_merged["date"].min() - pd.Timedelta(days=16)
-    ].copy()
-    train_hist[["store_nbr", "family"]] = train_hist["unique_id"].str.split(
-        "_", expand=True
-    )
-    train_hist_avg = get_avg_daily_sales(train_hist[["store_nbr", "date", "sales"]])
-
-    test_comparison_list = [
-        pd.concat([train_hist_avg, true_test_avg]),
-        pred_test_avg,
-    ]
-    stores = np.random.choice(np.arange(1, 55), size=5)
-    test_plots = {}
-    for store_nbr in stores:
-        fig, ax = plot_avg_sales(test_comparison_list, store_nbr)
-        test_plots[f"avg_sales_store_{store_nbr}"] = fig
-        plt.close(fig)
-    return test_rmsle, test_plots
+        plots[f"avg_sales_store_{store_nbr}"] = fig
+    return metrics, plots
 
 
 def run(
@@ -181,14 +118,12 @@ def run(
     fh: int = FH,
     k: int = 5,
     model_name: str | None = None,
+    refit: bool = False,
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
 ) -> tuple[pd.DataFrame, mlflow.entities.Run]:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-
-    print("Splitting data into train and test sets...")
-    train, test = get_train_test_sets(df, fh=fh)
 
     with mlflow.start_run(run_id=exp_run_id, run_name=exp_run_name) as eval_run:
         model_name = (
@@ -200,32 +135,48 @@ def run(
         mlflow.set_tag("model_name", model_name)
         mlflow.log_params(model_params)
 
-        print("Logging the training data to MLflow...")
-        dataset = mlflow.data.from_pandas(df, targets="sales")
-        mlflow.log_input(dataset, context="training")
+        print("Logging the data to MLflow...")
+        train_df, test_df = get_train_test_sets(df, fh * k)
+        train_dataset = mlflow.data.from_pandas(train_df, targets="sales")
+        test_dataset = mlflow.data.from_pandas(test_df, targets="sales")
+        train_dataset_tags = {
+            "start_date": str(train_df["date"].min()),
+            "end_date": str(train_df["date"].max()),
+        }
+        test_dataset_tags = {
+            "start_date": str(test_df["date"].min()),
+            "end_date": str(test_df["date"].max()),
+        }
+        mlflow.log_input(train_dataset, context="training", tags=train_dataset_tags)
+        mlflow.log_input(test_dataset, context="testing", tags=test_dataset_tags)
 
-        print(f"Evaluating forecaster on {k} validation set(s)...")
-        metrics, cv_plots = eval_val_sets(
-            forecaster, train, fh=fh, k=k, static_features=static_features
+        print("Evaluating (backtesting) forecaster on test set...")
+        metrics, cv_plots = cross_validate(
+            forecaster,
+            df,
+            fh=fh,
+            k=k,
+            static_features=static_features,
+            refit=refit,
+            backtest=True,
         )
         mlflow.log_metrics(metrics)
+        plot_dir = "plots/test/"
         for fig_name, fig in cv_plots.items():
-            mlflow.log_figure(fig, f"plots/cv/{fig_name}.png")
-
-        print("Evaluating forecaster on test set...")
-        test_rmsle, test_plots = eval_test_set(
-            forecaster, train, test, fh=fh, static_features=static_features
-        )
-        mlflow.log_metric("test_rmsle", test_rmsle)
-        for fig_name, fig in test_plots.items():
-            mlflow.log_figure(fig, f"plots/test/{fig_name}.png")
+            mlflow.log_figure(fig, f"{plot_dir}{fig_name}.png")
 
     return mlflow.get_run(eval_run.info.run_id)
 
 
 if __name__ == "__main__":
+    from ssdf.config import STATIC_FEATURES
     from ssdf.training.train import get_data, get_model
 
     df = get_data()
     forecaster = get_model()
-    run(forecaster, df)
+    run(
+        forecaster,
+        df,
+        static_features=STATIC_FEATURES,
+        model_name="DecisionTreeRegressor",
+    )

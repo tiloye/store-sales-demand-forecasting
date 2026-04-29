@@ -1,5 +1,6 @@
 import numpy as np
 import mlflow
+import pickle
 from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
@@ -38,7 +39,7 @@ def test_run_tuning(monkeypatch, training_data, mlflow_configs):
 
     assert len(mlflow_run.data.metrics) > 0
     assert len(mlflow_run.data.params) > 0
-    assert len(mlflow_run.inputs.dataset_inputs) > 0
+    assert len(mlflow_run.inputs.dataset_inputs) == 2
 
     client = mlflow.MlflowClient(tracking_uri=mlflow_configs["tracking_uri"])
 
@@ -69,4 +70,16 @@ def test_run_tuning(monkeypatch, training_data, mlflow_configs):
         assert "plots/cv/avg_sales_store_2.png" in cv_artifacts
 
     # Verify best_model artifact is logged
-    assert len(mlflow_run.outputs.model_outputs) > 0
+    model_artifacts = client.list_artifacts(mlflow_run.info.run_id, "model")
+    assert model_artifacts[0].path == "model/best_model.pkl"
+
+    # Assert that the loaded model artifact has the best parameters
+    local_path = client.download_artifacts(
+        mlflow_run.info.run_id, "model/best_model.pkl"
+    )
+    with open(local_path, "rb") as f:
+        loaded_forecaster = pickle.load(f)
+
+    loaded_params = loaded_forecaster.models["forecaster"].get_params()
+    for key, value in best_params.items():
+        assert loaded_params[key] == value

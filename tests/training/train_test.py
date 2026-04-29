@@ -1,10 +1,14 @@
+import os
+import tempfile
+import pickle
+
 import mlflow
 import pandas as pd
-from mlforecast import MLForecast, flavor
+from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
 from ssdf.config import STATIC_FEATURES
-from ssdf.training.train import get_data, get_best_model_id_from_mlflow, run
+from ssdf.training.train import get_data, get_best_model_run_id_from_mlflow, run
 
 
 def test_get_data(tmp_path, monkeypatch, training_data):
@@ -19,7 +23,7 @@ def test_get_data(tmp_path, monkeypatch, training_data):
     pd.testing.assert_frame_equal(df, training_data)
 
 
-def test_get_best_model_id_from_mlflow(training_data, monkeypatch, mlflow_configs):
+def test_get_best_model_run_id_from_mlflow(training_data, monkeypatch, mlflow_configs):
     monkeypatch.setattr(
         "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
@@ -27,31 +31,17 @@ def test_get_best_model_id_from_mlflow(training_data, monkeypatch, mlflow_config
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
     mlflow.set_experiment(mlflow_configs["experiment_name"])
 
-    best_model_id = None
+    best_model_run_id = None
     for metric in [0.3, 0.1, 0.2]:
         with mlflow.start_run() as run_env:
-            mlflow.log_metric("test_rmsle", metric)
-            model = MLForecast(
-                models={"forecaster": DummyRegressor(strategy="constant", constant=10)},
-                freq="D",
-                lags=[3],
-            )
-            model.fit(
-                training_data,
-                id_col="unique_id",
-                time_col="date",
-                target_col="sales",
-                static_features=STATIC_FEATURES,
-            )
-            flavor.log_model(model, "best_model")
-            run = mlflow.get_run(run_env.info.run_id)
+            mlflow.log_metric("avg_test_rmsle", metric)
             if metric == 0.1:
-                best_model_id = run.outputs.model_outputs[0].model_id
+                best_model_run_id = run_env.info.run_id
 
-    retrieved_model_id = get_best_model_id_from_mlflow(
+    retrieved_model_run_id = get_best_model_run_id_from_mlflow(
         mlflow_configs["experiment_name"]
     )
-    assert retrieved_model_id == best_model_id
+    assert retrieved_model_run_id == best_model_run_id
 
 
 def test_start_new_run(monkeypatch, training_data, mlflow_configs):
@@ -109,41 +99,33 @@ def test_continue_run(monkeypatch, training_data, mlflow_configs):
 
 
 def test_pull_best_model(monkeypatch, training_data, mlflow_configs):
-    from mlforecast import flavor
-    from sklearn.dummy import DummyRegressor
-
     monkeypatch.setattr(
         "ssdf.training.train.get_data", lambda *args, **kwargs: training_data
     )
     monkeypatch.setattr(
         "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
-
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
     mlflow.set_experiment(mlflow_configs["experiment_name"])
 
-    forecaster_to_log = MLForecast(
-        models={"forecaster": DummyRegressor(strategy="median")},
-        freq="D",
-        lags=[3],
-    )
-
-    forecaster_to_log.fit(
-        training_data,
-        id_col="unique_id",
-        time_col="date",
-        target_col="sales",
-        static_features=STATIC_FEATURES,
-    )
-
-    with mlflow.start_run() as run_env:
-        mlflow.log_metric("test_rmsle", 0.1)
-        flavor.log_model(forecaster_to_log, "best_model")
+    for strategy, metric in [("mean", 0.2), ("median", 0.1), ("constant", 0.3)]:
+        forecaster_to_log = MLForecast(
+            models={"forecaster": DummyRegressor(strategy=strategy)},
+            freq="D",
+            lags=[3],
+        )
+        with mlflow.start_run() as run_env:
+            mlflow.log_metric("avg_test_rmsle", metric)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                model_path = os.path.join(tmp_dir, "best_model.pkl")
+                with open(model_path, "wb") as f:
+                    pickle.dump(forecaster_to_log, f)
+                mlflow.log_artifact(model_path, "model")
 
     forecaster, _ = run(
         training_data,
         static_features=STATIC_FEATURES,
-        pull_best_model=True,
+        pull_best_model_artifact=True,
     )
 
     model_params = forecaster.models["forecaster"].get_params()

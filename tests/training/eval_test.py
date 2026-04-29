@@ -5,20 +5,7 @@ from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
 from ssdf.config import STATIC_FEATURES
-from ssdf.training.eval import (
-    get_train_test_sets,
-    rmsle,
-    get_cv_avg_predictions,
-    run,
-)
-
-
-def test_get_train_test_sets(training_data):
-    fh = 3
-    train, test = get_train_test_sets(training_data, fh=fh)
-
-    assert len(test["date"].unique()) == fh
-    assert train.columns.values.tolist() == training_data.columns.values.tolist()
+from ssdf.training.eval import rmsle, get_cv_avg_predictions, run
 
 
 def test_rmsle():
@@ -70,30 +57,12 @@ def test_run(monkeypatch, training_data, mlflow_configs):
     )
 
     assert isinstance(mlflow_run, mlflow.entities.Run)
-
-    assert "avg_cv_rmsle" in mlflow_run.data.metrics, (
-        f"avg_cv_rmsle not found in metrics: {mlflow_run.data.metrics}"
-    )
-    assert "std_cv_rmsle" in mlflow_run.data.metrics, (
-        f"std_cv_rmsle not found in metrics: {mlflow_run.data.metrics}"
-    )
-    assert "test_rmsle" in mlflow_run.data.metrics, (
-        f"test_rmsle not found in metrics: {mlflow_run.data.metrics}"
-    )
-    assert "model_name" in mlflow_run.data.tags, (
-        f"model_name not found in tags: {mlflow_run.data.tags}"
-    )
-    assert len(mlflow_run.inputs.dataset_inputs), (
-        f"No dataset inputs found in run: {mlflow_run.inputs.dataset_inputs}"
-    )
+    assert "avg_test_rmsle" in mlflow_run.data.metrics
+    assert "std_test_rmsle" in mlflow_run.data.metrics
+    assert "model_name" in mlflow_run.data.tags
+    assert len(mlflow_run.inputs.dataset_inputs) == 2
 
     client = mlflow.MlflowClient()
-    cv_artifacts = [
-        a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/cv")
-    ]
-    assert "plots/cv/avg_sales_store_1.png" in cv_artifacts
-    assert "plots/cv/avg_sales_store_2.png" in cv_artifacts
-
     test_artifacts = [
         a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/test")
     ]

@@ -1,12 +1,13 @@
 import pandas as pd
 import mlflow
+import pickle
 from mlforecast import MLForecast, flavor
 
 from ssdf.config import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME, FEATURES_DATA_DIR
 from ssdf.training.model import get_model
 
 
-def get_best_model_id_from_mlflow(experiment_name: str) -> str | None:
+def get_best_model_run_id_from_mlflow(experiment_name: str) -> str | None:
     client = mlflow.MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
     if not experiment:
@@ -14,15 +15,15 @@ def get_best_model_id_from_mlflow(experiment_name: str) -> str | None:
 
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],
-        filter_string="metrics.test_rmsle >= 0",
-        order_by=["metrics.test_rmsle ASC"],
+        filter_string="metrics.avg_test_rmsle >= 0",
+        order_by=["metrics.avg_test_rmsle ASC"],
         max_results=1,
     )
 
     if not runs:
         return None
 
-    return runs[0].outputs.model_outputs[0].model_id
+    return runs[0].info.run_id
 
 
 def get_data() -> pd.DataFrame:
@@ -41,17 +42,21 @@ def run(
     model_name: str | None = None,
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
-    pull_best_model: bool = False,
+    pull_best_model_artifact: bool = False,
 ) -> tuple[MLForecast, mlflow.entities.Run]:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
-    if pull_best_model:
+    if pull_best_model_artifact:
         print("Pulling best model artifact from MLflow...")
-        best_model_id = get_best_model_id_from_mlflow(MLFLOW_EXPERIMENT_NAME)
-        if best_model_id:
-            print(f"Loading best model from model_id: {best_model_id}")
-            forecaster = flavor.load_model(f"models:/{best_model_id}")
+        best_model_run_id = get_best_model_run_id_from_mlflow(MLFLOW_EXPERIMENT_NAME)
+        if best_model_run_id:
+            local_path = mlflow.artifacts.download_artifacts(
+                run_id=best_model_run_id, artifact_path="model/best_model.pkl"
+            )
+            print(f"Loading best model from {local_path}")
+            with open(local_path, "rb") as f:
+                forecaster = pickle.load(f)
         else:
             print("No best model found in MLflow. Using defaults.")
             forecaster = get_model()
@@ -94,4 +99,10 @@ if __name__ == "__main__":
     from ssdf.config import STATIC_FEATURES
 
     df = get_data()
-    run(df, static_features=STATIC_FEATURES)
+    model_name = "DecisionTreeRegressor"
+    run(
+        df,
+        static_features=STATIC_FEATURES,
+        model_name=model_name,
+        pull_best_model_artifact=True,
+    )

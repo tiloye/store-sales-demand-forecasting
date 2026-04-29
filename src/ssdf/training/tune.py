@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import copy
+import os
+import pickle
+import tempfile
 
 import mlflow
 import pandas as pd
 from joblib import Parallel, delayed
-from mlforecast import MLForecast, flavor
+from mlforecast import MLForecast
 from sklearn.model_selection import ParameterGrid
 
 from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
-from ssdf.training.eval import eval_test_set, eval_val_sets, get_train_test_sets
+from ssdf.training.eval import cross_validate
+from ssdf.training.utils import get_train_test_sets
 
 
 def _eval_param_set(
@@ -19,6 +23,7 @@ def _eval_param_set(
     fh: int,
     k: int,
     static_features: list[str] | None,
+    refit: bool,
     parent_run_id: str,
     tracking_uri: str,
     experiment_id: str,
@@ -36,8 +41,13 @@ def _eval_param_set(
     ):
         mlflow.log_params(model.get_params())
         print(f"Evaluating parameters: {params}")
-        metrics, cv_plots = eval_val_sets(
-            forecaster_copy, train, fh=fh, k=k, static_features=static_features
+        metrics, cv_plots = cross_validate(
+            forecaster_copy,
+            train,
+            fh=fh,
+            k=k,
+            static_features=static_features,
+            refit=refit,
         )
 
         mlflow.log_metrics(metrics)
@@ -56,6 +66,7 @@ def run_tuning(
     static_features: list[str] | None = None,
     fh: int = FH,
     k: int = 5,
+    refit: bool = False,
     n_jobs: int = 1,
     model_name: str | None = None,
     exp_run_name: str | None = None,
@@ -64,14 +75,25 @@ def run_tuning(
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
     print("Splitting data into train and test sets...")
-    train, test = get_train_test_sets(df, fh=fh)
+    train, test = get_train_test_sets(df, test_size=fh * k)
 
     best_score = float("inf")
     best_params = None
 
     with mlflow.start_run(run_name=exp_run_name) as parent_run:
-        dataset = mlflow.data.from_pandas(df, targets="sales")
-        mlflow.log_input(dataset, context="training")
+        print("Logging the data to MLflow...")
+        train_dataset = mlflow.data.from_pandas(train, targets="sales")
+        test_dataset = mlflow.data.from_pandas(test, targets="sales")
+        train_dataset_tags = {
+            "start_date": str(train["date"].min()),
+            "end_date": str(train["date"].max()),
+        }
+        test_dataset_tags = {
+            "start_date": str(test["date"].min()),
+            "end_date": str(test["date"].max()),
+        }
+        mlflow.log_input(train_dataset, context="train", tags=train_dataset_tags)
+        mlflow.log_input(test_dataset, context="test", tags=test_dataset_tags)
 
         tracking_uri = mlflow.get_tracking_uri()
         experiment_id = parent_run.info.experiment_id
@@ -85,6 +107,7 @@ def run_tuning(
                 fh,
                 k,
                 static_features,
+                refit,
                 parent_run_id,
                 tracking_uri,
                 experiment_id,
@@ -112,16 +135,26 @@ def run_tuning(
         forecaster.models["forecaster"].set_params(**best_params)
         mlflow.log_params(forecaster.models["forecaster"].get_params())
 
-        test_rmsle, test_plots = eval_test_set(
-            forecaster, train, test, fh=fh, static_features=static_features
+        test_rmsle, test_plots = cross_validate(
+            forecaster,
+            df,
+            fh=fh,
+            k=k,
+            static_features=static_features,
+            refit=refit,
+            backtest=True,
         )
-        mlflow.log_metric("test_rmsle", test_rmsle)
+        mlflow.log_metrics(test_rmsle)
         for fig_name, fig in test_plots.items():
             mlflow.log_figure(fig, f"plots/test/{fig_name}.png")
 
         print("Logging best model artifact to MLflow...")
         model_name = model_name or forecaster.models["forecaster"].__class__.__name__
-        flavor.log_model(forecaster, model_name)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_path = os.path.join(tmp_dir, "best_model.pkl")
+            with open(model_path, "wb") as f:
+                pickle.dump(forecaster, f)
+            mlflow.log_artifact(model_path, artifact_path="model")
 
     return best_params, mlflow.get_run(parent_run.info.run_id)
 
@@ -132,7 +165,7 @@ if __name__ == "__main__":
     from ssdf.training.train import get_data
 
     df = get_data()
-    param_grid = {"decisiontreeregressor__max_depth": list(range(2, 20, 2))}
+    param_grid = {"decisiontreeregressor__max_depth": list(range(2, 6, 2))}
     run_tuning(
         forecaster=get_model(),
         df=df,
