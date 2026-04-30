@@ -8,10 +8,12 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "apache-airflow>=3.2.1",
     "kagglehub>=1.0.0",
     "mlflow>=3.11.1",
     "mlforecast>=1.0.31",
     "numpy>=2.4.4",
+    "pendulum>=3.2.0",
     "pyarrow>=23.0.1",
     "python-dotenv>=1.2.2",
     "statsmodels>=0.14.6",

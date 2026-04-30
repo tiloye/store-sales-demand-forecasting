@@ -39,7 +39,7 @@ def generate_forecasts(model_uri: str | None = None, fh: int = FH) -> pd.DataFra
     return forecaster.predict(h=fh, X_df=X_df)
 
 
-def save_forecasts(forecasts: pd.DataFrame, path: Path) -> None:
+def save_forecasts(forecasts: pd.DataFrame, path: Path = PREDICTIONS_DIR) -> None:
     forecasts = forecasts.copy()
 
     # Extract store_nbr and family from unique_id

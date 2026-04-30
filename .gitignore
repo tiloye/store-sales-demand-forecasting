@@ -6,3 +6,5 @@
 
 /mlartifacts
 /mlflow.db
+
+/.airflow
