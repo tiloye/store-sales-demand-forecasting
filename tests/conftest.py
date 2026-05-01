@@ -31,19 +31,6 @@ def training_data():
 
 
 @pytest.fixture
-def features_data(training_data):
-    future_df = training_data.loc[training_data["date"] > "2023-01-27"].reset_index(
-        drop=True
-    )
-    future_df["date"] = future_df["date"] + pd.Timedelta(days=3)
-    future_df = future_df.drop(columns=["sales"])
-    features_data = pd.concat(
-        [training_data.drop("sales", axis=1), future_df]
-    ).reset_index(drop=True)
-    return features_data
-
-
-@pytest.fixture
 def mlflow_configs():
     return {
         "tracking_uri": "file:///tmp/mlflow_tracking",

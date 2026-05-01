@@ -1,5 +1,6 @@
 from airflow.sdk import dag, task
 from pendulum import datetime, duration
+from ssdf.config import FH
 from ssdf.inference import predict, submission
 
 
@@ -10,7 +11,7 @@ from ssdf.inference import predict, submission
     tags=["ssdf", "inference"],
     params={
         "model_uri": None,
-        "fh": 16,
+        "fh": FH,
     },
 )
 def inference_pipeline():

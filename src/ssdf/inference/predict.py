@@ -23,12 +23,28 @@ def get_model(model_uri: str | None = None) -> MLForecast:
     return flavor.load_model(model_uri=model_uri)
 
 
+def get_series_update(last_date: pd.Timestamp):
+    """Get series update after the last date the model was trained on."""
+    target = pd.read_parquet(
+        FEATURES_DATA_DIR / "target.parquet", filters=[("date", ">", last_date)]
+    )
+    if target.empty:
+        return
+
+    features = pd.read_parquet(
+        FEATURES_DATA_DIR / "features.parquet",
+        filters=[("date", ">", last_date)],
+    )
+    new_df = target.merge(features, on=["unique_id", "date"])
+    return new_df
+
+
 def get_features(future_df: pd.DataFrame) -> pd.DataFrame:
     min_date = future_df["date"].min()
     features = pd.read_parquet(
         FEATURES_DATA_DIR / "features.parquet", filters=[("date", ">=", min_date)]
     )
-    features = features.merge(future_df, on=["unique_id", "date"]).drop(
+    features = future_df.merge(features, on=["unique_id", "date"]).drop(
         columns=STATIC_FEATURES
     )
     return features
@@ -36,6 +52,11 @@ def get_features(future_df: pd.DataFrame) -> pd.DataFrame:
 
 def generate_forecasts(model_uri: str | None = None, fh: int = FH) -> pd.DataFrame:
     forecaster = get_model(model_uri)
+    last_date = forecaster.ts.last_dates[0]
+    new_df = get_series_update(last_date)
+    if new_df is not None:
+        forecaster.update(new_df)
+        print("Updated model with new data")
     X_df = get_features(forecaster.make_future_dataframe(h=fh))
     return forecaster.predict(h=fh, X_df=X_df)
 

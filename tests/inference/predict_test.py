@@ -6,6 +6,7 @@ from sklearn.dummy import DummyRegressor
 from ssdf.config import ENV_NAME, MLFLOW_MODEL_REGISTRY_NAME, STATIC_FEATURES
 from ssdf.inference.predict import (
     get_model,
+    get_series_update,
     get_features,
     generate_forecasts,
     save_forecasts,
@@ -45,6 +46,20 @@ def train_model(training_data, mlflow_configs):
     return model_info.model_id
 
 
+@pytest.fixture
+def features_data(training_data):
+    # Create feature data (X_df) with future values
+    future_df = training_data.loc[training_data["date"] > "2023-01-27"].reset_index(
+        drop=True
+    )
+    future_df["date"] = future_df["date"] + pd.Timedelta(days=3)
+    future_df = future_df.drop(columns=["sales"])
+    features_data = pd.concat(
+        [training_data.drop("sales", axis=1), future_df]
+    ).reset_index(drop=True)
+    return features_data
+
+
 def test_get_model(train_model, monkeypatch):
     model_uri = [None, f"models:/{train_model}"]
     for uri in model_uri:
@@ -67,7 +82,32 @@ def test_get_features(features_data, tmp_path, monkeypatch):
     pd.testing.assert_frame_equal(features, expected_df)
 
 
-def test_generate_forecast(train_model, features_data, tmp_path, monkeypatch):
+def test_get_series_update(training_data, features_data, tmp_path, monkeypatch):
+    target_data = training_data[["unique_id", "date", "sales"]].copy()
+    target_data.to_parquet(tmp_path / "target.parquet", index=False)
+    features_data.to_parquet(tmp_path / "features.parquet", index=False)
+    monkeypatch.setattr("ssdf.inference.predict.FEATURES_DATA_DIR", tmp_path)
+
+    last_date = pd.Timestamp("2024-01-01")
+    assert get_series_update(last_date) is None
+
+    last_date = pd.Timestamp("2023-01-20")
+    result = get_series_update(last_date)
+
+    assert isinstance(result, pd.DataFrame)
+    assert list(result.columns) == list(training_data.columns)
+
+    expected_df = training_data.loc[
+        (training_data["date"] > last_date) & (training_data["date"] <= "2023-01-30")
+    ].reset_index(drop=True)
+    pd.testing.assert_frame_equal(result, expected_df)
+
+
+def test_generate_forecast(
+    train_model, training_data, features_data, tmp_path, monkeypatch
+):
+    target_data = training_data[["unique_id", "date", "sales"]].copy()
+    target_data.to_parquet(tmp_path / "target.parquet", index=False)
     features_data.to_parquet(tmp_path / "features.parquet", index=False)
     monkeypatch.setattr("ssdf.inference.predict.FEATURES_DATA_DIR", tmp_path)
 
@@ -75,6 +115,38 @@ def test_generate_forecast(train_model, features_data, tmp_path, monkeypatch):
 
     assert isinstance(forecasts, pd.DataFrame)
     assert set(["unique_id", "date", "forecaster"]).issubset(forecasts.columns)
+    assert forecasts["date"].min() == pd.Timestamp("2023-01-31")
+    assert forecasts["date"].max() == pd.Timestamp("2023-02-02")
+    assert forecasts.shape == (12, 3)
+
+
+def test_generate_forecast_updates_model(
+    train_model, training_data, features_data, tmp_path, monkeypatch
+):
+    target_data = training_data[["unique_id", "date", "sales"]].copy()
+
+    # Create new targets after training period (which ends on 2023-01-30)
+    # This will act as new_df for updating the model (3 days: 31st, 1st, 2nd)
+    new_targets = target_data.loc[target_data["date"] > "2023-01-27"].copy()
+    new_targets["date"] = new_targets["date"] + pd.Timedelta(days=3)
+    target_data = pd.concat([target_data, new_targets]).reset_index(drop=True)
+
+    # Extend features data by 3 days (2023-02-03 to 2023-02-05)
+    new_features = features_data.loc[features_data["date"] > "2023-01-30"].copy()
+    new_features["date"] = new_features["date"] + pd.Timedelta(days=3)
+
+    features_data = pd.concat([features_data, new_features]).reset_index(drop=True)
+
+    target_data.to_parquet(tmp_path / "target.parquet", index=False)
+    features_data.to_parquet(tmp_path / "features.parquet", index=False)
+    monkeypatch.setattr("ssdf.inference.predict.FEATURES_DATA_DIR", tmp_path)
+
+    forecasts = generate_forecasts(fh=3)
+
+    assert isinstance(forecasts, pd.DataFrame)
+    assert set(["unique_id", "date", "forecaster"]).issubset(forecasts.columns)
+    assert forecasts["date"].min() == pd.Timestamp("2023-02-03")
+    assert forecasts["date"].max() == pd.Timestamp("2023-02-05")
     assert forecasts.shape == (12, 3)
 
 
