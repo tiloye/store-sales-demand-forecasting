@@ -130,3 +130,34 @@ def test_pull_best_model(monkeypatch, training_data, mlflow_configs):
 
     model_params = forecaster.models["forecaster"].get_params()
     assert model_params["strategy"] == "median"
+
+
+def test_register_model(monkeypatch, training_data, mlflow_configs):
+    monkeypatch.setattr(
+        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+    )
+    monkeypatch.setattr(
+        "ssdf.training.train.get_data", lambda *args, **kwargs: training_data
+    )
+    monkeypatch.setattr(
+        "ssdf.training.train.MLFLOW_MODEL_REGISTRY_NAME", "test-model-registry"
+    )
+    monkeypatch.setattr("ssdf.training.train.ENV_NAME", "test-env")
+
+    mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
+    mlflow.set_experiment(mlflow_configs["experiment_name"])
+
+    forecaster, mlflow_run = run(
+        training_data,
+        static_features=STATIC_FEATURES,
+        register_model=True,
+    )
+
+    client = mlflow.MlflowClient()
+    registered_model = client.get_registered_model("test-model-registry")
+    assert registered_model.name == "test-model-registry"
+
+    model_version_by_alias = client.get_model_version_by_alias(
+        "test-model-registry", "test-env"
+    )
+    assert model_version_by_alias.run_id == mlflow_run.info.run_id

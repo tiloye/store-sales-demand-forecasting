@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from mlforecast import flavor
 from ssdf.config import (
+    ENV_NAME,
     MLFLOW_MODEL_REGISTRY_NAME,
     PREDICTIONS_DIR,
     FH,
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 
 def get_model(model_uri: str | None = None) -> MLForecast:
     if model_uri is None:
-        model_uri = f"models:/{MLFLOW_MODEL_REGISTRY_NAME}@production"
+        model_uri = f"models:/{MLFLOW_MODEL_REGISTRY_NAME}@{ENV_NAME}"
     return flavor.load_model(model_uri=model_uri)
 
 
@@ -64,8 +65,3 @@ def run(model_uri: str | None = None):
     print("Saving forecasts...")
     save_forecasts(predictions, PREDICTIONS_DIR)
     print("Successfully saved forecasts")
-
-
-if __name__ == "__main__":
-    model_uri = "models:/m-b5dcb1ca35a547c4b370764cbe5e0274"
-    run(model_uri=model_uri)

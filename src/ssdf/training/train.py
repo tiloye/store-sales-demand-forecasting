@@ -3,7 +3,13 @@ import mlflow
 import pickle
 from mlforecast import MLForecast, flavor
 
-from ssdf.config import MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME, FEATURES_DATA_DIR
+from ssdf.config import (
+    ENV_NAME,
+    FEATURES_DATA_DIR,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_MODEL_REGISTRY_NAME,
+)
 from ssdf.training.model import get_model
 
 
@@ -43,6 +49,7 @@ def run(
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
     pull_best_model_artifact: bool = False,
+    register_model: bool = False,
 ) -> tuple[MLForecast, mlflow.entities.Run]:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
@@ -88,9 +95,24 @@ def run(
         print("Training complete")
 
         print("Logging the trained model to MLflow")
-        flavor.log_model(
+        model_info = flavor.log_model(
             forecaster, artifact_path=model_name
         )  # artifact_path is now name in new mlflow version
+
+        if register_model:
+            print("Registering the trained model to MLflow...")
+            model_version = mlflow.register_model(
+                model_info.model_uri,
+                name=MLFLOW_MODEL_REGISTRY_NAME,
+            )
+            mlflow.MlflowClient().set_registered_model_alias(
+                name=MLFLOW_MODEL_REGISTRY_NAME,
+                alias=ENV_NAME,
+                version=model_version.version,
+            )
+            print(
+                f"Successfully registered the trained model to MLflow as version {model_version.version}"
+            )
 
     return forecaster, mlflow.get_run(run_env.info.run_id)
 
@@ -105,4 +127,5 @@ if __name__ == "__main__":
         static_features=STATIC_FEATURES,
         model_name=model_name,
         pull_best_model_artifact=True,
+        register_model=True,
     )

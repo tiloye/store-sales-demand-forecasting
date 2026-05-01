@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 from mlforecast import MLForecast, flavor
 from sklearn.dummy import DummyRegressor
-from ssdf.config import MLFLOW_MODEL_REGISTRY_NAME, STATIC_FEATURES
+from ssdf.config import ENV_NAME, MLFLOW_MODEL_REGISTRY_NAME, STATIC_FEATURES
 from ssdf.inference.predict import (
     get_model,
     get_features,
@@ -34,20 +34,18 @@ def train_model(training_data, mlflow_configs):
         )
         model_info = flavor.log_model(forecaster, forecaster.__class__.__name__)
 
-    model_id = model_info.model_id
-    model_uri = f"models:/{model_id}"
     model_version = mlflow.register_model(
-        model_uri=model_uri, name=MLFLOW_MODEL_REGISTRY_NAME
+        model_uri=model_info.model_uri, name=MLFLOW_MODEL_REGISTRY_NAME
     )
     mlflow.MlflowClient().set_registered_model_alias(
         name=MLFLOW_MODEL_REGISTRY_NAME,
-        alias="production",
+        alias=ENV_NAME,
         version=model_version.version,
     )
-    return model_id
+    return model_info.model_id
 
 
-def test_get_model(train_model):
+def test_get_model(train_model, monkeypatch):
     model_uri = [None, f"models:/{train_model}"]
     for uri in model_uri:
         model = get_model(uri)

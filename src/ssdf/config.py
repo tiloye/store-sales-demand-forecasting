@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+ENV_NAME = os.getenv("ENV_NAME")
+
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 RAW_DATA_DIR = DATA_DIR / "raw"
