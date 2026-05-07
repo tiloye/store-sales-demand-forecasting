@@ -5,6 +5,10 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.pipeline import make_pipeline
 
 
+MODEL_NAME = "DecisionTreeRegressor"
+PARAM_GRID = {"decisiontreeregressor__max_depth": list(range(2, 6, 2))}
+
+
 def get_model() -> MLForecast:
     regressor = DecisionTreeRegressor(max_depth=10, random_state=42)
     encoder = OrdinalEncoder()
