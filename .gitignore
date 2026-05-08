@@ -8,3 +8,4 @@
 /mlflow.db
 
 /.airflow
+/.evidently_workspace

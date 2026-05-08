@@ -18,3 +18,6 @@ MLFLOW_MODEL_REGISTRY_NAME = "store-sales-forecaster"
 
 FH = 16
 STATIC_FEATURES = ["store_nbr", "family"]
+
+EVIDENTLY_WORKSPACE = Path(__file__).parent.parent.parent / ".evidently_workspace"
+EVIDENTLY_PROJECT_NAME = "Store Sales Demand Forecasting"
