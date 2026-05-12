@@ -1,4 +1,5 @@
 from airflow.sdk import dag, task
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime, duration
 
 import ssdf.data
@@ -34,7 +35,12 @@ def feature_pipeline():
     def generate_features():
         create_features()
 
-    process_raw_data() >> [generate_target(), generate_features()]
+    trigger_inference = TriggerDagRunOperator(
+        task_id="trigger_inference_pipeline",
+        trigger_dag_id="inference_pipeline",
+    )
+
+    process_raw_data() >> [generate_target(), generate_features()] >> trigger_inference
 
 
 feature_pipeline()

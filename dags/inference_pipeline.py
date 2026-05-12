@@ -1,4 +1,5 @@
 from airflow.sdk import dag, task
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime, duration
 from ssdf.config import FH
 from ssdf.inference import predict, submission
@@ -33,8 +34,19 @@ def inference_pipeline():
     def generate_submission():
         submission.generate_submission()
 
+    trigger_monitoring = TriggerDagRunOperator(
+        task_id="trigger_monitoring_pipeline",
+        trigger_dag_id="monitoring_pipeline",
+        conf={
+            "ref_start_date": "2017-08-16",
+            "ref_end_date": "2017-08-23",
+            "curr_start_date": "2017-08-24",
+            "curr_end_date": "2017-08-31",
+        },
+    )
+
     forecasts = generate_forecasts()
-    save_forecasts(forecasts)
+    save_forecasts(forecasts) >> trigger_monitoring
 
 
 inference_pipeline()
