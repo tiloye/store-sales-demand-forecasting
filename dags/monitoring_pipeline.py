@@ -1,6 +1,9 @@
-import pandas as pd
+import pickle
+import base64
+
 from airflow.sdk import dag, task, Param
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from pandas import Timestamp
 
 from ssdf.config import EVIDENTLY_PROJECT_NAME
 from ssdf.monitoring import utils, metrics
@@ -24,27 +27,22 @@ def monitoring_pipeline():
 
     @task
     def get_ref_curr_data(params):
-        import pickle
-        import base64
-
         print("Getting reference and current data...")
         ref_start = (
-            pd.Timestamp(params["ref_start_date"])
+            Timestamp(params["ref_start_date"])
             if params.get("ref_start_date")
             else None
         )
         ref_end = (
-            pd.Timestamp(params["ref_end_date"]) if params.get("ref_end_date") else None
+            Timestamp(params["ref_end_date"]) if params.get("ref_end_date") else None
         )
         curr_start = (
-            pd.Timestamp(params["curr_start_date"])
+            Timestamp(params["curr_start_date"])
             if params.get("curr_start_date")
             else None
         )
         curr_end = (
-            pd.Timestamp(params["curr_end_date"])
-            if params.get("curr_end_date")
-            else None
+            Timestamp(params["curr_end_date"]) if params.get("curr_end_date") else None
         )
 
         ref_data, curr_data = metrics.get_ref_curr_data(
@@ -62,16 +60,12 @@ def monitoring_pipeline():
 
     @task
     def generate_snapshot(serialized_data, params):
-        import pickle
-        import base64
 
         # Custom deserialization
         ref_data, curr_data = pickle.loads(base64.b64decode(serialized_data))
 
         print("Generating drift snapshot...")
-        timestamp = (
-            pd.Timestamp(params["timestamp"]) if params.get("timestamp") else None
-        )
+        timestamp = Timestamp(params["timestamp"]) if params.get("timestamp") else None
 
         snapshot = metrics.generate_drift_snapshot(
             reference_data=ref_data, current_data=curr_data, timestamp=timestamp
@@ -82,9 +76,6 @@ def monitoring_pipeline():
 
     @task
     def log_snapshot(serialized_snapshot):
-        import pickle
-        import base64
-
         snapshot = pickle.loads(base64.b64decode(serialized_snapshot))
 
         print("Getting/Creating Evidently project...")
@@ -96,9 +87,6 @@ def monitoring_pipeline():
 
     @task.short_circuit
     def check_forecast_drift(serialized_snapshot, params):
-        import pickle
-        import base64
-
         # Skip retraining if drift metrics was generated for custom date range
         if params.get("ref_start_date") is not None:
             return False
