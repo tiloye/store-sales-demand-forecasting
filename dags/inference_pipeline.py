@@ -34,12 +34,6 @@ def inference_pipeline():
     trigger_monitoring = TriggerDagRunOperator(
         task_id="trigger_monitoring_pipeline",
         trigger_dag_id="monitoring_pipeline",
-        conf={
-            "ref_start_date": "2017-08-16",
-            "ref_end_date": "2017-08-23",
-            "curr_start_date": "2017-08-24",
-            "curr_end_date": "2017-08-31",
-        },
     )
 
     forecasts = generate_forecasts()
