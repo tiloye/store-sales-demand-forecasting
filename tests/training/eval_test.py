@@ -69,3 +69,6 @@ def test_run(monkeypatch, training_data, mlflow_configs):
     ]
     assert "plots/cv/avg_daily_sales_across_stores.png" in cv_artifacts
     assert "plots/test/avg_daily_sales_across_stores.png" in test_artifacts
+
+    model_artifacts = client.list_artifacts(mlflow_run.info.run_id, "model")
+    assert model_artifacts[0].path == "model/model.pkl"

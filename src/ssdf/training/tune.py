@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import copy
-import os
-import pickle
-import tempfile
 
 import mlflow
 import pandas as pd
@@ -13,7 +10,7 @@ from sklearn.model_selection import ParameterGrid
 
 from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
 from ssdf.training.eval import cross_validate
-from ssdf.training.utils import get_train_test_sets
+from ssdf.training.utils import get_train_test_sets, log_model_artifact
 
 
 def _eval_param_set(
@@ -150,11 +147,7 @@ def run_tuning(
 
         print("Logging best model artifact to MLflow...")
         model_name = model_name or forecaster.models["forecaster"].__class__.__name__
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            model_path = os.path.join(tmp_dir, "best_model.pkl")
-            with open(model_path, "wb") as f:
-                pickle.dump(forecaster, f)
-            mlflow.log_artifact(model_path, artifact_path="model")
+        log_model_artifact(forecaster)
 
     return best_params, mlflow.get_run(parent_run.info.run_id)
 

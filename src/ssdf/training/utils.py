@@ -1,4 +1,9 @@
+import os
+import pickle
+import tempfile
+
 import pandas as pd
+from mlflow import log_artifact
 
 
 def get_train_test_sets(
@@ -20,3 +25,11 @@ def get_avg_daily_sales(data: pd.DataFrame) -> pd.DataFrame:
 
     data = data.groupby(["date"])["sales"].mean().to_frame("avg_sales")
     return data
+
+
+def log_model_artifact(forecaster):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        model_path = os.path.join(tmp_dir, "model.pkl")
+        with open(model_path, "wb") as f:
+            pickle.dump(forecaster, f)
+        log_artifact(model_path, artifact_path="model")

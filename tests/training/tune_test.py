@@ -1,4 +1,3 @@
-import numpy as np
 import mlflow
 import pickle
 from mlforecast import MLForecast
@@ -9,9 +8,6 @@ from ssdf.training.tune import run_tuning
 
 
 def test_run_tuning(monkeypatch, training_data, mlflow_configs):
-    monkeypatch.setattr(
-        "ssdf.training.eval.np.random.choice", lambda *args, **kwargs: np.array([1, 2])
-    )
     monkeypatch.setattr(
         "ssdf.training.tune.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
@@ -58,25 +54,21 @@ def test_run_tuning(monkeypatch, training_data, mlflow_configs):
     test_artifacts = [
         a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/test")
     ]
-    assert "plots/test/avg_sales_store_1.png" in test_artifacts
-    assert "plots/test/avg_sales_store_2.png" in test_artifacts
+    assert "plots/test/avg_daily_sales_across_stores.png" in test_artifacts
 
     # Verify artifacts were logged for the nested cv runs
     for child_run in child_runs:
         cv_artifacts = [
             a.path for a in client.list_artifacts(child_run.info.run_id, "plots/cv")
         ]
-        assert "plots/cv/avg_sales_store_1.png" in cv_artifacts
-        assert "plots/cv/avg_sales_store_2.png" in cv_artifacts
+        assert "plots/cv/avg_daily_sales_across_stores.png" in cv_artifacts
 
     # Verify best_model artifact is logged
     model_artifacts = client.list_artifacts(mlflow_run.info.run_id, "model")
-    assert model_artifacts[0].path == "model/best_model.pkl"
+    assert model_artifacts[0].path == "model/model.pkl"
 
     # Assert that the loaded model artifact has the best parameters
-    local_path = client.download_artifacts(
-        mlflow_run.info.run_id, "model/best_model.pkl"
-    )
+    local_path = client.download_artifacts(mlflow_run.info.run_id, "model/model.pkl")
     with open(local_path, "rb") as f:
         loaded_forecaster = pickle.load(f)
 

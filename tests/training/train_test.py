@@ -114,10 +114,10 @@ def test_pull_best_model(monkeypatch, training_data, mlflow_configs):
             freq="D",
             lags=[3],
         )
-        with mlflow.start_run() as run_env:
+        with mlflow.start_run():
             mlflow.log_metric("avg_test_rmsle", metric)
             with tempfile.TemporaryDirectory() as tmp_dir:
-                model_path = os.path.join(tmp_dir, "best_model.pkl")
+                model_path = os.path.join(tmp_dir, "model.pkl")
                 with open(model_path, "wb") as f:
                     pickle.dump(forecaster_to_log, f)
                 mlflow.log_artifact(model_path, "model")

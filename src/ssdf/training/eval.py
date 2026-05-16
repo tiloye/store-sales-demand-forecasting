@@ -8,7 +8,11 @@ from sklearn.metrics import root_mean_squared_log_error
 
 from mlforecast import MLForecast
 from ssdf.config import FH, MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME
-from ssdf.training.utils import get_avg_daily_sales, get_train_test_sets
+from ssdf.training.utils import (
+    get_avg_daily_sales,
+    get_train_test_sets,
+    log_model_artifact,
+)
 
 
 def rmsle(y_true, y_pred):
@@ -177,6 +181,8 @@ def run(
         for fig_name, fig in cv_plots.items():
             mlflow.log_figure(fig, f"{plot_dir}{fig_name}.png")
 
+        log_model_artifact(forecaster)
+
     return mlflow.get_run(eval_run.info.run_id)
 
 
@@ -190,5 +196,5 @@ if __name__ == "__main__":
         forecaster,
         df,
         static_features=STATIC_FEATURES,
-        model_name="DecisionTreeRegressor",
+        model_name="SeasonalNaiveRegressor",
     )

@@ -59,7 +59,7 @@ def run(
         best_model_run_id = get_best_model_run_id_from_mlflow(MLFLOW_EXPERIMENT_NAME)
         if best_model_run_id:
             local_path = mlflow.artifacts.download_artifacts(
-                run_id=best_model_run_id, artifact_path="model/best_model.pkl"
+                run_id=best_model_run_id, artifact_path="model/model.pkl"
             )
             print(f"Loading best model from {local_path}")
             with open(local_path, "rb") as f:
