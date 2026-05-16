@@ -154,15 +154,15 @@ def run_tuning(
 
 if __name__ == "__main__":
     from ssdf.config import STATIC_FEATURES
-    from ssdf.training.model import get_model
+    from ssdf.training.model import get_model, MODEL_NAME, PARAM_GRID
     from ssdf.training.train import get_data
 
     df = get_data()
-    param_grid = {"decisiontreeregressor__max_depth": list(range(2, 6, 2))}
     run_tuning(
         forecaster=get_model(),
         df=df,
-        param_grid=param_grid,
+        param_grid=PARAM_GRID,
         static_features=STATIC_FEATURES,
         n_jobs=2,
+        model_name=MODEL_NAME,
     )
