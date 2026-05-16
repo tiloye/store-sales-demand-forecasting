@@ -16,25 +16,46 @@ def test_rmsle():
 
 
 def test_get_cv_avg_predictions(training_data):
-    # Create mock cv dataframe
-    cv_df = pd.DataFrame(
-        {
-            "unique_id": ["1_A", "1_A", "2_B", "2_B"],
-            "date": pd.to_datetime(
-                ["2020-01-01", "2020-01-02", "2020-01-01", "2020-01-02"]
-            ),
-            "cutoff": pd.to_datetime(
-                ["2019-12-31", "2019-12-31", "2019-12-31", "2019-12-31"]
-            ),
-            "sales": [10.0, 20.0, 30.0, 40.0],
-            "forecaster": [12.0, 18.0, 28.0, 42.0],
-        }
+    forecaster = MLForecast(
+        models={"forecaster": DummyRegressor()},
+        freq="D",
+        lags=[3],
     )
+    cv_df = forecaster.cross_validation(
+        df=training_data,
+        n_windows=2,
+        h=5,
+        id_col="unique_id",
+        time_col="date",
+        target_col="sales",
+        static_features=STATIC_FEATURES,
+        refit=False,
+    )
+    exp_daily_averages_true = (
+        training_data.groupby("date")["sales"].mean().to_frame("avg_sales")
+    )
+    start_date = cv_df["cutoff"].min() - pd.Timedelta(days=16 - 1)
+    exp_daily_averages_true = exp_daily_averages_true.loc[start_date:]
+    exp_daily_averages_predicted = (
+        cv_df.groupby("date")["forecaster"].mean().to_frame("avg_sales")
+    )
+    exp_result = [
+        exp_daily_averages_true,
+        exp_daily_averages_predicted.loc["2023-01-21":"2023-01-25"],
+        exp_daily_averages_predicted["2023-01-26":"2023-01-30"],
+    ]
 
     comparison_list = get_cv_avg_predictions(training_data, cv_df)
 
-    assert len(comparison_list) == 2  # true + 1 fold
-    assert "store_1" in comparison_list[0].columns
+    pd.testing.assert_frame_equal(
+        comparison_list[0], exp_result[0], check_index_type=False
+    )
+    pd.testing.assert_frame_equal(
+        comparison_list[1], exp_result[1], check_index_type=False
+    )
+    pd.testing.assert_frame_equal(
+        comparison_list[2], exp_result[2], check_index_type=False
+    )
 
 
 def test_run(monkeypatch, training_data, mlflow_configs):
