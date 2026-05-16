@@ -1,4 +1,3 @@
-import numpy as np
 import mlflow
 import pandas as pd
 from mlforecast import MLForecast
@@ -40,9 +39,6 @@ def test_get_cv_avg_predictions(training_data):
 
 def test_run(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.eval.np.random.choice", lambda *args, **kwargs: np.array([1, 2])
-    )
-    monkeypatch.setattr(
         "ssdf.training.eval.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
@@ -57,14 +53,19 @@ def test_run(monkeypatch, training_data, mlflow_configs):
     )
 
     assert isinstance(mlflow_run, mlflow.entities.Run)
+    assert "avg_cv_rmsle" in mlflow_run.data.metrics
+    assert "std_cv_rmsle" in mlflow_run.data.metrics
     assert "avg_test_rmsle" in mlflow_run.data.metrics
     assert "std_test_rmsle" in mlflow_run.data.metrics
     assert "model_name" in mlflow_run.data.tags
     assert len(mlflow_run.inputs.dataset_inputs) == 2
 
     client = mlflow.MlflowClient()
+    cv_artifacts = [
+        a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/cv")
+    ]
     test_artifacts = [
         a.path for a in client.list_artifacts(mlflow_run.info.run_id, "plots/test")
     ]
-    assert "plots/test/avg_sales_store_1.png" in test_artifacts
-    assert "plots/test/avg_sales_store_2.png" in test_artifacts
+    assert "plots/cv/avg_daily_sales_across_stores.png" in cv_artifacts
+    assert "plots/test/avg_daily_sales_across_stores.png" in test_artifacts

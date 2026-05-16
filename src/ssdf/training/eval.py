@@ -46,16 +46,16 @@ def get_cv_avg_predictions(
     return comparison_list
 
 
-def plot_avg_sales(data_list: list[pd.DataFrame], store_nbr: int):
-    data_list = [data.loc[:, f"store_{store_nbr}"] for data in data_list]
+def plot_avg_sales(data_list: list[pd.DataFrame]):
     n_plots = len(data_list)
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig = plt.figure(figsize=(12, 5))
+    ax = fig.add_subplot(1, 1, 1)
     labels = ["True"] + [f"Predicted F{fold}" for fold in range(1, n_plots)]
     for data, label in zip(data_list, labels):
         ax.plot(data.index, data.values, marker="o", label=label)
 
-    ax.set_title(f"Average Daily Sales at Store {store_nbr} [True vs Predicted]")
+    ax.set_title("Average Daily Sales Across Stores [True vs Predicted]")
     ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
     plt.tight_layout()
     plt.show()
@@ -100,14 +100,11 @@ def cross_validate(
     }
 
     print(
-        f"Plotting average daily sales for random stores from {'test' if backtest else 'cross validation'} result"
+        f"Plotting average daily sales across stores for {'test' if backtest else 'cross validation'} result"
     )
     comparison_list = get_cv_avg_predictions(df, cv_res)
-    stores = np.random.choice(np.arange(1, 55), size=5)
-    plots = {}
-    for store_nbr in stores:
-        fig, ax = plot_avg_sales(comparison_list, store_nbr)
-        plots[f"avg_sales_store_{store_nbr}"] = fig
+    fig, ax = plot_avg_sales(comparison_list)
+    plots = {"avg_daily_sales_across_stores": fig}
     return metrics, plots
 
 
@@ -121,7 +118,7 @@ def run(
     refit: bool = False,
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
-) -> tuple[pd.DataFrame, mlflow.entities.Run]:
+) -> mlflow.entities.Run:
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
@@ -149,6 +146,21 @@ def run(
         }
         mlflow.log_input(train_dataset, context="training", tags=train_dataset_tags)
         mlflow.log_input(test_dataset, context="testing", tags=test_dataset_tags)
+
+        print("Evaluating (cross-validation) forecaster on train set...")
+        metrics, cv_plots = cross_validate(
+            forecaster,
+            train_df,
+            fh=fh,
+            k=k,
+            static_features=static_features,
+            refit=refit,
+            backtest=False,
+        )
+        mlflow.log_metrics(metrics)
+        plot_dir = "plots/cv/"
+        for fig_name, fig in cv_plots.items():
+            mlflow.log_figure(fig, f"{plot_dir}{fig_name}.png")
 
         print("Evaluating (backtesting) forecaster on test set...")
         metrics, cv_plots = cross_validate(
