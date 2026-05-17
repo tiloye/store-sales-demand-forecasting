@@ -119,13 +119,13 @@ def run(
 
 if __name__ == "__main__":
     from ssdf.config import STATIC_FEATURES
+    from ssdf.training.model import MODEL_NAME
 
     df = get_data()
-    model_name = "DecisionTreeRegressor"
     run(
         df,
         static_features=STATIC_FEATURES,
-        model_name=model_name,
+        model_name=MODEL_NAME,
         pull_best_model_artifact=True,
         register_model=True,
     )
