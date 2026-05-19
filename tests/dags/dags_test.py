@@ -151,7 +151,7 @@ def test_monitoring_pipeline_trigger_training_state(
         "utf-8"
     )
     monkeypatch.setattr(
-        "airflow.models.xcom.XCom.get_one",
+        "airflow.sdk.execution_time.xcom.XCom.get_one",
         lambda *args, **kwargs: serialized_dummy_snapshot,
     )
     dag = dagbag.get_dag(dag_id="monitoring_pipeline")
