@@ -11,6 +11,7 @@ from ssdf.config import (
     MLFLOW_MODEL_REGISTRY_NAME,
 )
 from ssdf.training.model import get_model
+from ssdf.data_io import read_data_from_storage
 
 
 def get_best_model_run_id_from_mlflow(experiment_name: str) -> str | None:
@@ -33,8 +34,8 @@ def get_best_model_run_id_from_mlflow(experiment_name: str) -> str | None:
 
 
 def get_data() -> pd.DataFrame:
-    target = pd.read_parquet(FEATURES_DATA_DIR / "target.parquet")
-    features = pd.read_parquet(FEATURES_DATA_DIR / "features.parquet")
+    target = read_data_from_storage(FEATURES_DATA_DIR / "target.parquet")
+    features = read_data_from_storage(FEATURES_DATA_DIR / "features.parquet")
     df = pd.merge(target, features, on=["unique_id", "date"])
     cols = ["unique_id", "date", "sales"] + [
         f for f in features.columns if f not in ["unique_id", "date"]

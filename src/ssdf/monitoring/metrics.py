@@ -10,6 +10,7 @@ from ssdf.config import (
     STATIC_FEATURES,
 )
 from ssdf.monitoring.utils import get_project, log_snapshot
+from ssdf.data_io import read_data_from_storage
 
 
 def generate_drift_snapshot(
@@ -90,7 +91,7 @@ def get_data(
     else:
         raise ValueError(f"Unsupported dataset: {dataset}")
 
-    data = pd.read_parquet(data_path)
+    data = read_data_from_storage(data_path)
 
     if dataset == "predictions":
         data.rename(columns={"sales": "sales_forecast"}, inplace=True)

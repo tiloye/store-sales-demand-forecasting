@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import pandas as pd
 from mlforecast import flavor
+from ssdf.data_io import read_data_from_storage, write_data_to_storage
 from ssdf.config import (
     ENV_NAME,
     MLFLOW_MODEL_REGISTRY_NAME,
@@ -25,13 +26,13 @@ def get_model(model_uri: str | None = None) -> MLForecast:
 
 def get_series_update(last_date: pd.Timestamp):
     """Get series update after the last date the model was trained on."""
-    target = pd.read_parquet(
+    target = read_data_from_storage(
         FEATURES_DATA_DIR / "target.parquet", filters=[("date", ">", last_date)]
     )
     if target.empty:
         return
 
-    features = pd.read_parquet(
+    features = read_data_from_storage(
         FEATURES_DATA_DIR / "features.parquet",
         filters=[("date", ">", last_date)],
     )
@@ -41,7 +42,7 @@ def get_series_update(last_date: pd.Timestamp):
 
 def get_features(future_df: pd.DataFrame) -> pd.DataFrame:
     min_date = future_df["date"].min()
-    features = pd.read_parquet(
+    features = read_data_from_storage(
         FEATURES_DATA_DIR / "features.parquet", filters=[("date", ">=", min_date)]
     )
     features = future_df.merge(features, on=["unique_id", "date"]).drop(
@@ -75,7 +76,7 @@ def save_forecasts(forecasts: pd.DataFrame, path: Path = PREDICTIONS_DIR) -> Non
     forecasts = forecasts[["date", "store_nbr", "family", "sales"]].sort_values(
         ["date", "store_nbr", "family"]
     )
-    forecasts.to_parquet(path / "sales_forecasts.parquet", index=False)
+    write_data_to_storage(forecasts, path / "sales_forecasts.parquet", index=False)
 
 
 def run(model_uri: str | None = None):
