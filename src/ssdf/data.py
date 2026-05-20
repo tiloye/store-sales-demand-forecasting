@@ -1,20 +1,48 @@
+from __future__ import annotations
+
 import kagglehub
 import pandas as pd
 from itertools import product
 from dotenv import load_dotenv
 from ssdf.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+from ssdf.data_io import read_data_from_storage, write_data_to_storage
+
 
 load_dotenv()
 
 
 def get_source_data(path: str | None = None, force_download: bool = False) -> str:
     """Get the source data from the Kaggle competition."""
-    return kagglehub.competition_download(
-        "store-sales-time-series-forecasting",
-        path=path,
-        output_dir=RAW_DATA_DIR.as_posix(),
-        force_download=force_download,
-    )
+    from upath.implementations.cloud import S3Path
+
+    if isinstance(RAW_DATA_DIR, S3Path):
+        import os
+        import tempfile
+        import s3fs
+        from ssdf.config import STORAGE_OPTIONS
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            download_path = kagglehub.competition_download(
+                "store-sales-time-series-forecasting",
+                path=path,
+                output_dir=tmp_dir,
+                force_download=force_download,
+            )
+            fs = s3fs.S3FileSystem(**STORAGE_OPTIONS)
+            for root, _, files in os.walk(download_path):
+                for file in files:
+                    local_file = os.path.join(root, file)
+                    rel_path = os.path.relpath(local_file, download_path)
+                    s3_dest = f"{RAW_DATA_DIR.as_posix()}/{rel_path}"
+                    fs.put_file(local_file, s3_dest)
+            return RAW_DATA_DIR.as_posix()
+    else:
+        return kagglehub.competition_download(
+            "store-sales-time-series-forecasting",
+            path=path,
+            output_dir=RAW_DATA_DIR.as_posix(),
+            force_download=force_download,
+        )
 
 
 def wrangle_train_test(df: pd.DataFrame) -> pd.DataFrame:
@@ -49,18 +77,18 @@ def wrangle_train_test(df: pd.DataFrame) -> pd.DataFrame:
 def run(path: str | None = None, force_download: bool = False):
     try:
         print("Downloading the source data...")
-        path = get_source_data(path, force_download)
+        _ = get_source_data(path, force_download)
         print("Successfully downloaded the source data")
     except FileExistsError:
         print("Source data already exists, skipping download")
 
     print("Wrangling train data...")
-    df = pd.read_csv(RAW_DATA_DIR / "train.csv")
+    df = read_data_from_storage(RAW_DATA_DIR / "train.csv")
     wtrain_df = wrangle_train_test(df)
     print("Successfully wrangled train data")
 
     print("Wrangling test data...")
-    df = pd.read_csv(RAW_DATA_DIR / "test.csv")
+    df = read_data_from_storage(RAW_DATA_DIR / "test.csv")
     wtest_df = wrangle_train_test(df)
     print("Successfully wrangled test data")
 
@@ -73,11 +101,13 @@ def run(path: str | None = None, force_download: bool = False):
     print("Successfully merged and split train and test data to sales and promotions")
 
     print("Saving sales data...")
-    sales.to_parquet(PROCESSED_DATA_DIR / "sales.parquet", index=False)
+    write_data_to_storage(sales, PROCESSED_DATA_DIR / "sales.parquet", index=False)
     print("Successfully saved sales data")
 
     print("Saving promotions data...")
-    promotions.to_parquet(PROCESSED_DATA_DIR / "promotions.parquet", index=False)
+    write_data_to_storage(
+        promotions, PROCESSED_DATA_DIR / "promotions.parquet", index=False
+    )
     print("Successfully saved promotions data")
 
 
