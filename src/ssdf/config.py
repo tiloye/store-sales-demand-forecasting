@@ -6,11 +6,27 @@ load_dotenv()
 
 ENV_NAME = os.getenv("ENV_NAME")
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+if S3_BUCKET_NAME is None:
+    DATA_DIR = Path(__file__).parent.parent.parent / "data"
+else:
+    from upath import UPath
+
+    DATA_DIR = UPath(f"s3://{S3_BUCKET_NAME}")
+
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 RAW_DATA_DIR = DATA_DIR / "raw"
 FEATURES_DATA_DIR = DATA_DIR / "feature_store"
 PREDICTIONS_DIR = DATA_DIR / "predictions"
+
+STORAGE_OPTIONS = {
+    "key": os.getenv("AWS_ACCESS_KEY_ID"),
+    "secret": os.getenv("AWS_SECRET_ACCESS_KEY"),
+    "client_kwargs": {
+        "endpoint_url": os.getenv("AWS_ENDPOINT_URL"),
+        "region_name": os.getenv("AWS_REGION"),
+    },
+}
 
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
 MLFLOW_EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME")
