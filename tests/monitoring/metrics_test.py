@@ -79,7 +79,9 @@ def test_get_data_with_dates(dataset, dummy_data, tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("dataset", ["predictions", "features"])
-def test_get_data_missing_dates(dummy_data, tmp_path, monkeypatch, dataset):
+def test_get_data_raises_error_with_unspecified_dates(
+    dummy_data, tmp_path, monkeypatch, dataset
+):
     if dataset == "predictions":
         dummy_data = dummy_data.rename(columns={"value": "sales"})
         dummy_data.to_parquet(tmp_path / "sales_forecasts.parquet")
@@ -90,9 +92,8 @@ def test_get_data_missing_dates(dummy_data, tmp_path, monkeypatch, dataset):
 
     with pytest.raises(AssertionError):
         get_data(
-            "features",
+            dataset,
             curr_start_date=pd.Timestamp("2023-01-06"),
-            # Missing other dates
         )
 
 
