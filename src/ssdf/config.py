@@ -4,15 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ENV_NAME = os.getenv("ENV_NAME")
+ENV_NAME = os.getenv("ENV_NAME", "dev")
 
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-if S3_BUCKET_NAME is None:
+
+if ENV_NAME == "dev":
     DATA_DIR = Path(__file__).parent.parent.parent / "data"
 else:
     from upath import UPath
 
-    DATA_DIR = UPath(f"s3://{S3_BUCKET_NAME}")
+    DATA_DIR = UPath(f"s3://{os.getenv('S3_BUCKET_NAME')}")
 
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 RAW_DATA_DIR = DATA_DIR / "raw"
