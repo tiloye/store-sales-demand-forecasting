@@ -1,9 +1,9 @@
+import os
 from airflow.sdk import dag, task
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime, duration
 
-import ssdf.data
-from ssdf.features.feature import create_features, create_target
+PYTHON_ENVIRONMENT = os.getenv("PYTHON_ENVIRONMENT", "/usr/local/bin/python")
 
 
 @dag(
@@ -21,18 +21,24 @@ def feature_pipeline():
     Feature Pipeline: Pulls the processed data from the data pipeline and creates features and target parquet file.
     """
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def process_raw_data(params):
+        from ssdf import data
+
         path = params["path"]
         force_download = params["force_download"]
-        ssdf.data.run(path=path, force_download=force_download)
+        data.run(path=path, force_download=force_download)
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_target():
+        from ssdf.features.feature import create_target
+
         create_target()
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_features():
+        from ssdf.features.feature import create_features
+
         create_features()
 
     trigger_inference = TriggerDagRunOperator(

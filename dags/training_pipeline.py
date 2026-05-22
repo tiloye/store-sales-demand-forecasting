@@ -1,10 +1,6 @@
 from airflow.sdk import dag, task
 from airflow.sdk.exceptions import AirflowSkipException
 
-from ssdf.config import STATIC_FEATURES
-from ssdf.training import train, tune
-from ssdf.training.model import MODEL_NAME, PARAM_GRID, get_model
-
 
 @dag(
     catchup=False,
@@ -15,14 +11,20 @@ from ssdf.training.model import MODEL_NAME, PARAM_GRID, get_model
 )
 def training_pipeline():
 
-    @task
+    @task.external_python(python="./.venv/bin/python")
     def get_train_data():
-        return train.get_data()
+        from ssdf.training.train import get_data
 
-    @task
+        return get_data()
+
+    @task.external_python(python="./.venv/bin/python")
     def tune_model(df, **context):
         if not context["params"]["tune"]:
             raise AirflowSkipException
+
+        from ssdf.config import STATIC_FEATURES
+        from ssdf.training import tune
+        from ssdf.training.model import MODEL_NAME, PARAM_GRID, get_model
 
         print("Starting hyperparameter tuning")
         forecaster = get_model()
@@ -37,8 +39,12 @@ def training_pipeline():
             f"Finished hyperparameter tuning with MLFlow Run ID: {mlflow_run.info.run_id}"
         )
 
-    @task(trigger_rule="none_failed")
+    @task.external_python(python="./.venv/bin/python")
     def train_model(df):
+        from ssdf.config import STATIC_FEATURES
+        from ssdf.training import train
+        from ssdf.training.model import MODEL_NAME
+
         print("Starting model training")
         _, mlflow_run_id = train.run(
             df,

@@ -1,12 +1,11 @@
+import os
 import pickle
 import base64
 
 from airflow.sdk import dag, task, Param
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-from pandas import Timestamp
 
-from ssdf.config import EVIDENTLY_PROJECT_NAME
-from ssdf.monitoring import utils, metrics
+PYTHON_ENVIRONMENT = os.getenv("PYTHON_ENVIRONMENT", "/usr/local/bin/python")
 
 
 @dag(
@@ -25,8 +24,11 @@ def monitoring_pipeline():
     Monitoring Pipeline: Pulls the predicted data and feature, generates evidently snapshots, and logs the snapshot to evidently workspace.
     """
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def get_ref_curr_data(params):
+        from pandas import Timestamp
+        from ssdf.monitoring import metrics
+
         print("Getting reference and current data...")
         ref_start = (
             Timestamp(params["ref_start_date"])
@@ -60,6 +62,8 @@ def monitoring_pipeline():
 
     @task
     def generate_snapshot(serialized_data, params):
+        from pandas import Timestamp
+        from ssdf.monitoring import metrics
 
         # Custom deserialization
         ref_data, curr_data = pickle.loads(base64.b64decode(serialized_data))
@@ -74,8 +78,11 @@ def monitoring_pipeline():
         serialized_snapshot = base64.b64encode(pickle.dumps(snapshot)).decode("utf-8")
         return serialized_snapshot
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def log_snapshot(serialized_snapshot):
+        from ssdf.config import EVIDENTLY_PROJECT_NAME
+        from ssdf.monitoring import utils
+
         snapshot = pickle.loads(base64.b64decode(serialized_snapshot))
 
         print("Getting/Creating Evidently project...")
