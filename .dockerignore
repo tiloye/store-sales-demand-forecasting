@@ -1,0 +1,16 @@
+astro
+.git
+.env
+airflow_settings.yaml
+logs/
+.venv
+airflow.db
+airflow.cfg
+.airflow
+notebooks/
+mlartifacts/
+mlflow.db
+.evidently_workspace/
+.pytest_cache/
+data/
+.vscode/

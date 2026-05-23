@@ -9,3 +9,6 @@
 
 /.airflow
 /.evidently_workspace
+
+.astro/standalone
+airflow_settings.yaml
