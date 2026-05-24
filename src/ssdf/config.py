@@ -35,5 +35,8 @@ MLFLOW_MODEL_REGISTRY_NAME = "store-sales-forecaster"
 FH = 16
 STATIC_FEATURES = ["store_nbr", "family"]
 
-EVIDENTLY_WORKSPACE = Path(__file__).parent.parent.parent / ".evidently_workspace"
 EVIDENTLY_PROJECT_NAME = "Store Sales Demand Forecasting"
+EVIDENTLY_API_KEY = os.getenv("EVIDENTLY_API_KEY")
+EVIDENTLY_ORG_ID = os.getenv("EVIDENTLY_ORG_ID")
+if ENV_NAME == "dev":
+    EVIDENTLY_WORKSPACE = Path(__file__).parent.parent.parent / ".evidently_workspace"
