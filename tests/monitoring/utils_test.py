@@ -12,7 +12,7 @@ def test_get_project_returns_existing_project(mock_workspace, monkeypatch):
     ws = Workspace(mock_workspace)
     expected_project = ws.create_project("Project 1")
     expected_project.save()
-    monkeypatch.setattr("ssdf.monitoring.utils.ws", ws)
+    monkeypatch.setattr("ssdf.monitoring.utils.get_workspace", lambda: ws)
 
     project = get_project("Project 1")
 
@@ -21,7 +21,7 @@ def test_get_project_returns_existing_project(mock_workspace, monkeypatch):
 
 def test_get_project_creates_new_project(mock_workspace, monkeypatch):
     ws = Workspace(mock_workspace)
-    monkeypatch.setattr("ssdf.monitoring.utils.ws", ws)
+    monkeypatch.setattr("ssdf.monitoring.utils.get_workspace", lambda: ws)
 
     project = get_project("New Project")
 
@@ -37,7 +37,7 @@ def test_get_project_raises_error_if_multiple_projects_found(
     expected_project = ws.create_project("Project 1")
     expected_project.save()
     ws.create_project("Project 1")
-    monkeypatch.setattr("ssdf.monitoring.utils.ws", ws)
+    monkeypatch.setattr("ssdf.monitoring.utils.get_workspace", lambda: ws)
 
     with pytest.raises(
         ValueError, match="More than one project with the name Project 1 found"
