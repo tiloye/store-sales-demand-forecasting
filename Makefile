@@ -1,4 +1,6 @@
--include .env
+ENV ?= dev
+ENV_FILE := .env.$(ENV)
+-include $(ENV_FILE)
 export
 
 start-garage:
@@ -30,3 +32,24 @@ run-astro-dev-test: start-garage start-astro-airflow-standalone
 start-local-mlflow-server:
 	mlflow server \
 	    --backend-store-uri sqlite:///mlflow.db --port 5000
+
+create-astro-deployment-variables:
+	astro deployment variable create \
+		ENV_NAME=$(ENV_NAME) \
+		MLFLOW_TRACKING_URI=$(MLFLOW_TRACKING_URI) \
+		MLFLOW_EXPERIMENT_NAME=$(MLFLOW_EXPERIMENT_NAME) \
+		AWS_ENDPOINT_URL=$(AWS_ENDPOINT_URL) \
+		AWS_REGION=$(AWS_REGION) \
+		S3_BUCKET_NAME=$(S3_BUCKET_NAME) \
+		-d $(ASTRO_DEPLOYMENT_ID)
+
+	astro deployment variable create \
+		KAGGLE_API_TOKEN=$(KAGGLE_API_TOKEN) \
+		AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) \
+		AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) \
+		MLFLOW_TRACKING_USERNAME=$(MLFLOW_TRACKING_USERNAME) \
+		MLFLOW_TRACKING_PASSWORD=$(MLFLOW_TRACKING_PASSWORD) \
+		EVIDENTLY_API_KEY=$(EVIDENTLY_API_KEY) \
+		EVIDENTLY_ORG_ID=$(EVIDENTLY_ORG_ID) \
+		-d $(ASTRO_DEPLOYMENT_ID) \
+		--secret
