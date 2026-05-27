@@ -14,3 +14,5 @@ mlflow.db
 .pytest_cache/
 data/
 .vscode/
+.github/
+__pycache__/

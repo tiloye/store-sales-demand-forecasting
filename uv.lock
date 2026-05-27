@@ -4157,13 +4157,11 @@ name = "ssdf"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "apache-airflow" },
     { name = "evidently" },
     { name = "kagglehub" },
     { name = "mlflow" },
     { name = "mlforecast" },
     { name = "numpy" },
-    { name = "pendulum" },
     { name = "pyarrow" },
     { name = "python-dotenv" },
     { name = "s3fs" },
@@ -4173,21 +4171,21 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "apache-airflow" },
     { name = "ipykernel" },
     { name = "matplotlib" },
+    { name = "pendulum" },
     { name = "pytest" },
     { name = "seaborn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "apache-airflow", specifier = ">=3.2.1" },
     { name = "evidently", specifier = ">=0.7.21" },
     { name = "kagglehub", specifier = ">=1.0.0" },
     { name = "mlflow", specifier = ">=3.11.1" },
     { name = "mlforecast", specifier = ">=1.0.31" },
     { name = "numpy", specifier = ">=2.4.4" },
-    { name = "pendulum", specifier = ">=3.2.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "s3fs", specifier = ">=2026.4.0" },
@@ -4197,8 +4195,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "apache-airflow", specifier = ">=3.2.1" },
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "matplotlib", specifier = ">=3.10.8" },
+    { name = "pendulum", specifier = ">=3.2.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "seaborn", specifier = ">=0.13.2" },
 ]
