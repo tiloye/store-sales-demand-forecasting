@@ -1,6 +1,4 @@
 import os
-import pickle
-import base64
 
 from airflow.sdk import dag, task, Param
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
@@ -24,8 +22,15 @@ def monitoring_pipeline():
     Monitoring Pipeline: Pulls the predicted data and feature, generates evidently snapshots, and logs the snapshot to evidently workspace.
     """
 
+    @task
+    def get_dag_params(params):
+        return params
+
     @task.external_python(python=PYTHON_ENVIRONMENT)
-    def get_ref_curr_data(params):
+    def get_ref_curr_data(dag_params):
+        params = dag_params
+        import pickle
+        import base64
         from pandas import Timestamp
         from ssdf.monitoring import metrics
 
@@ -61,7 +66,10 @@ def monitoring_pipeline():
         return serialized_data
 
     @task
-    def generate_snapshot(serialized_data, params):
+    def generate_snapshot(serialized_data, dag_params):
+        params = dag_params
+        import pickle
+        import base64
         from pandas import Timestamp
         from ssdf.monitoring import metrics
 
@@ -80,6 +88,8 @@ def monitoring_pipeline():
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def log_snapshot(serialized_snapshot):
+        import pickle
+        import base64
         from ssdf.config import EVIDENTLY_PROJECT_NAME
         from ssdf.monitoring import utils
 
@@ -93,7 +103,11 @@ def monitoring_pipeline():
         print("Snapshot logged successfully!")
 
     @task.short_circuit
-    def check_forecast_drift(serialized_snapshot, params):
+    def check_forecast_drift(serialized_snapshot, dag_params):
+        params = dag_params
+        import pickle
+        import base64
+
         # Skip retraining if drift metrics was generated for custom date range
         if params.get("ref_start_date") is not None:
             return False
@@ -123,10 +137,11 @@ def monitoring_pipeline():
         trigger_dag_id="training_pipeline",
     )
 
-    serialized_data = get_ref_curr_data()
-    serialized_snapshot = generate_snapshot(serialized_data)
+    p = get_dag_params()
+    serialized_data = get_ref_curr_data(p)
+    serialized_snapshot = generate_snapshot(serialized_data, p)
     log_snapshot(serialized_snapshot)
-    forecast_drifted = check_forecast_drift(serialized_snapshot)
+    forecast_drifted = check_forecast_drift(serialized_snapshot, p)
     forecast_drifted >> trigger_training
 
 

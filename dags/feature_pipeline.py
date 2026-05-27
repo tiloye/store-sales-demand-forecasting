@@ -21,12 +21,16 @@ def feature_pipeline():
     Feature Pipeline: Pulls the processed data from the data pipeline and creates features and target parquet file.
     """
 
+    @task
+    def get_dag_params(params):
+        return params
+
     @task.external_python(python=PYTHON_ENVIRONMENT)
-    def process_raw_data(params):
+    def process_raw_data(dag_params):
         from ssdf import data
 
-        path = params["path"]
-        force_download = params["force_download"]
+        path = dag_params["path"]
+        force_download = dag_params["force_download"]
         data.run(path=path, force_download=force_download)
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
@@ -46,7 +50,8 @@ def feature_pipeline():
         trigger_dag_id="inference_pipeline",
     )
 
-    process_raw_data() >> [generate_target(), generate_features()] >> trigger_inference
+    p = get_dag_params()
+    process_raw_data(p) >> [generate_target(), generate_features()] >> trigger_inference
 
 
 feature_pipeline()

@@ -18,11 +18,17 @@ def inference_pipeline():
     Inference Pipeline: Pulls the latest feature from the feature file, generates forecasts, and saves it to local directory.
     """
 
+    @task
+    def get_dag_params(params):
+        return params
+
     @task.external_python(python=PYTHON_ENVIRONMENT)
-    def generate_forecasts(params):
+    def generate_forecasts(dag_params):
         from ssdf.inference.predict import generate_forecasts
 
-        return generate_forecasts(model_uri=params["model_uri"], fh=params["fh"])
+        return generate_forecasts(
+            model_uri=dag_params["model_uri"], fh=dag_params["fh"]
+        )
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def save_forecasts(forecasts):
@@ -41,7 +47,8 @@ def inference_pipeline():
         trigger_dag_id="monitoring_pipeline",
     )
 
-    forecasts = generate_forecasts()
+    p = get_dag_params()
+    forecasts = generate_forecasts(p)
     save_forecasts(forecasts) >> trigger_monitoring
 
 
