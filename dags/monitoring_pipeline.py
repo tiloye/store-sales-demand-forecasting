@@ -65,7 +65,7 @@ def monitoring_pipeline():
         )
         return serialized_data
 
-    @task
+    @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_snapshot(serialized_data, dag_params):
         params = dag_params
         import pickle
@@ -103,34 +103,21 @@ def monitoring_pipeline():
         print("Snapshot logged successfully!")
 
     @task.short_circuit
-    def check_forecast_drift(serialized_snapshot, dag_params):
-        params = dag_params
+    def retrain_or_skip(serialized_snapshot, dag_params):
         import pickle
         import base64
+        from ssdf.monitoring import utils
 
+        params = dag_params
         # Skip retraining if drift metrics was generated for custom date range
         if params.get("ref_start_date") is not None:
             return False
 
         snapshot = pickle.loads(base64.b64decode(serialized_snapshot))
 
-        for _metric in snapshot.dict()["metrics"]:
-            if (
-                _metric["config"]["type"] == "evidently:metric_v2:ValueDrift"
-                and _metric["config"]["column"] == "sales_forecast"
-            ):
-                prediction_drift_metric = _metric
-                break
+        prediction_drift_detected = utils.check_prediction_drift(snapshot)
 
-        if (
-            prediction_drift_metric["value"]
-            > prediction_drift_metric["config"]["threshold"]
-        ):
-            print("Prediction drift detected. Triggering training pipeline...")
-            return True
-        else:
-            print("No prediction drift detected.")
-            return False
+        return prediction_drift_detected
 
     trigger_training = TriggerDagRunOperator(
         task_id="trigger_training_pipeline",
@@ -141,8 +128,7 @@ def monitoring_pipeline():
     serialized_data = get_ref_curr_data(p)
     serialized_snapshot = generate_snapshot(serialized_data, p)
     log_snapshot(serialized_snapshot)
-    forecast_drifted = check_forecast_drift(serialized_snapshot, p)
-    forecast_drifted >> trigger_training
+    retrain_or_skip(serialized_snapshot, p) >> trigger_training
 
 
 monitoring_pipeline()

@@ -1,6 +1,7 @@
 import pytest
 from evidently.ui.workspace import Workspace
-from ssdf.monitoring.utils import get_project
+from ssdf.monitoring.utils import get_project, check_prediction_drift
+from unittest.mock import Mock
 
 
 @pytest.fixture
@@ -43,3 +44,37 @@ def test_get_project_raises_error_if_multiple_projects_found(
         ValueError, match="More than one project with the name Project 1 found"
     ):
         get_project("Project 1")
+
+
+def test_check_prediction_drift_exceeds_threshold():
+    mock_snapshot = Mock()
+    mock_snapshot.dict.return_value = {
+        "metrics": [
+            {
+                "config": {
+                    "type": "evidently:metric_v2:ValueDrift",
+                    "column": "sales_forecast",
+                    "threshold": 0.5,
+                },
+                "value": 0.6,
+            }
+        ]
+    }
+    assert check_prediction_drift(mock_snapshot) is True
+
+
+def test_check_prediction_drift_below_threshold():
+    mock_snapshot = Mock()
+    mock_snapshot.dict.return_value = {
+        "metrics": [
+            {
+                "config": {
+                    "type": "evidently:metric_v2:ValueDrift",
+                    "column": "sales_forecast",
+                    "threshold": 0.5,
+                },
+                "value": 0.4,
+            }
+        ]
+    }
+    assert check_prediction_drift(mock_snapshot) is False
