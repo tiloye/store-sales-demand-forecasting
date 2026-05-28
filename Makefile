@@ -37,7 +37,6 @@ create-astro-deployment-variables:
 	astro deployment variable create \
 		ENV_NAME=$(ENV_NAME) \
 		MLFLOW_TRACKING_URI=$(MLFLOW_TRACKING_URI) \
-		MLFLOW_EXPERIMENT_NAME=$(MLFLOW_EXPERIMENT_NAME) \
 		AWS_ENDPOINT_URL=$(AWS_ENDPOINT_URL) \
 		AWS_REGION=$(AWS_REGION) \
 		S3_BUCKET_NAME=$(S3_BUCKET_NAME) \
