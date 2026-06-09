@@ -2,23 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from evidently.ui.workspace import Workspace, CloudWorkspace
-from ssdf.config import ENV_NAME, EVIDENTLY_ORG_ID
+from evidently.ui.workspace import RemoteWorkspace
+from ssdf.config import EVIDENTLY_WORKSPACE_URL
 
 if TYPE_CHECKING:
     from evidently.ui.workspace import Project
     from evidently.core.report import Snapshot
 
 
-def get_workspace() -> Workspace | CloudWorkspace:
-    if ENV_NAME == "dev":
-        from ssdf.config import EVIDENTLY_WORKSPACE
-
-        return Workspace(EVIDENTLY_WORKSPACE)
-    else:
-        from ssdf.config import EVIDENTLY_API_KEY
-
-        return CloudWorkspace(token=EVIDENTLY_API_KEY)
+def get_workspace() -> RemoteWorkspace:
+    return RemoteWorkspace(EVIDENTLY_WORKSPACE_URL)
 
 
 def get_project(name: str) -> Project:
@@ -28,7 +21,7 @@ def get_project(name: str) -> Project:
     project = list(filter(lambda p: p.name == name, ws.list_projects()))
 
     if len(project) == 0:
-        project = ws.create_project(name, org_id=EVIDENTLY_ORG_ID)
+        project = ws.create_project(name)
         project.save()
         return project
 

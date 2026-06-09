@@ -77,6 +77,8 @@ Follow the steps below to deploy the project to your Airflow deployment on Astro
     AWS_SECRET_ACCESS_KEY=YOUR-AWS-SECRET-ACCESS-KEY
     AWS_REGION=YOUR-AWS-ACCOUNT-REGION
     S3_BUCKET_NAME=YOUR-S3-BUCKET-NAME
+
+    EVIDENTLY_WORKSPACE_URL=YOUR-REMOTE-EVIDENTLY-WORKSPACE-URL
     
     ASTRO_API_TOKEN=YOUR-ASTRO-API-TOKEN
     ASTRO_DEPLOYMENT_ID=YOUR-ASTRO-DEPLOYMENT-ID
@@ -139,19 +141,29 @@ Follow the steps below to set up the project for local development:
     AWS_SECRET_ACCESS_KEY=400db5aebbdb6e4d5a9bfe70c7d5277a4be996026f9452d3500ebe2734e4d185 # Garage container custom secret key
     AWS_REGION=garage # Garage container region
     S3_BUCKET_NAME=ssdf-dev # Garage container bucket name
+
+    EVIDENTLY_WORKSPACE_URL=http://localhost:8000 # Local Evidently workspace URL
     ```
     
 11. Activate the project environment (depends on your operating system).
 
-12. Run tests:
+12. Start the local development containers (Garage for local S3 and Evidently AI for monitoring):
+    
+    `make start-dev-containers`
+    
+    You can view the Evidently AI UI by navigating to `http://localhost:8000`.
+
+13. Run tests:
     
     `make test`
     
-13. Stop the Garage container:
-    
-    `make stop-garage`
 14. Download the dataset:
+    
     `uv run python src/ssdf/data.py`
+
+15. Stop and remove the development containers when done:
+    
+    `make remove-dev-containers`
 
 ## Project Folder Structure
 ```text
@@ -165,7 +177,9 @@ Follow the steps below to set up the project for local development:
 │   ├── monitoring/        # Evidently monitoring metrics and dashboard modules
 │   └── training/          # Model training, evaluation, and tuning modules
 ├── tests/                 # Unit tests for the various pipeline components
+├── dev-compose.yml        # Docker Compose configuration for local dev services
 ├── Dockerfile             # Docker image configuration for Astro runtime
+├── EvidentlyDockerfile    # Docker image configuration for local Evidently UI
 ├── garage.toml            # Garage object store configuration
 ├── Makefile               # Make commands for CLI operations
 ├── pyproject.toml         # Project metadata and dependencies configuration

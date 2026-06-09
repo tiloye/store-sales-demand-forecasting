@@ -34,6 +34,7 @@ jobs:
           AWS_ACCESS_KEY_ID: GK0123456789012345678901234567890123456789
           AWS_SECRET_ACCESS_KEY: 400db5aebbdb6e4d5a9bfe70c7d5277a4be996026f9452d3500ebe2734e4d185
           S3_BUCKET_NAME: ssdf-dev
+          EVIDENTLY_WORKSPACE_URL: http://localhost:8000
         run: make test
 
   deploy:

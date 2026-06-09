@@ -1,0 +1,3 @@
+FROM evidently/evidently-service:latest
+
+RUN pip install s3fs

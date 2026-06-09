@@ -17,3 +17,5 @@ data/
 .github/
 __pycache__/
 images/
+dev-compose.yml
+EvidentlyDockerfile

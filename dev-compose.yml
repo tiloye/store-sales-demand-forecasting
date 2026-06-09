@@ -1,0 +1,36 @@
+name: ssdf
+
+services:
+
+  garage:
+    image: dxflrs/garage:v2.3.0
+    ports:
+      - "3900-3903:3900-3903"
+    volumes:
+      - ./garage.toml:/etc/garage.toml
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      GARAGE_DEFAULT_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      GARAGE_DEFAULT_BUCKET: ${S3_BUCKET_NAME}
+    command: "/garage server --single-node --default-bucket"
+
+  evidently-ai:
+    build: 
+      context: .
+      dockerfile: EvidentlyDockerfile
+    image: ssdf-evidently-service:s3
+    pull_policy: never
+    ports:
+      - "8000:8000"
+    environment:
+      FSSPEC_S3_ENDPOINT_URL: http://garage:3900
+      FSSPEC_S3_KEY: ${AWS_ACCESS_KEY_ID}
+      FSSPEC_S3_SECRET: ${AWS_SECRET_ACCESS_KEY}
+    command: --workspace s3://${S3_BUCKET_NAME}/workspace
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    

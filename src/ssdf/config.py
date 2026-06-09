@@ -23,8 +23,8 @@ PREDICTIONS_DIR = DATA_DIR / "predictions"
 STORAGE_OPTIONS = {
     "key": os.getenv("AWS_ACCESS_KEY_ID"),
     "secret": os.getenv("AWS_SECRET_ACCESS_KEY"),
+    "endpoint_url": os.getenv("AWS_ENDPOINT_URL"),
     "client_kwargs": {
-        "endpoint_url": os.getenv("AWS_ENDPOINT_URL"),
         "region_name": os.getenv("AWS_REGION"),
     },
 }
@@ -37,7 +37,4 @@ FH = 16
 STATIC_FEATURES = ["store_nbr", "family"]
 
 EVIDENTLY_PROJECT_NAME = "Store Sales Demand Forecasting"
-EVIDENTLY_API_KEY = os.getenv("EVIDENTLY_API_KEY")
-EVIDENTLY_ORG_ID = os.getenv("EVIDENTLY_ORG_ID")
-if ENV_NAME == "dev":
-    EVIDENTLY_WORKSPACE = PROJECT_DIR / ".evidently_workspace"
+EVIDENTLY_WORKSPACE_URL = os.getenv("EVIDENTLY_WORKSPACE_URL")
