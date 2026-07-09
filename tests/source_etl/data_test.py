@@ -1,9 +1,11 @@
 import os
+
 import pandas as pd
 import s3fs
 from upath import UPath
+
 from ssdf.config import STORAGE_OPTIONS
-from ssdf.data import get_source_data, wrangle_train_test, run
+from ssdf.data import get_source_data, run, wrangle_train_test
 
 dummy_train_data = pd.DataFrame(
     [

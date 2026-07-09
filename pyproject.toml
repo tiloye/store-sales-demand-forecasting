@@ -35,4 +35,9 @@ dev = [
     "matplotlib>=3.10.8",
     "pytest>=9.0.3",
     "seaborn>=0.13.2",
+    "ruff>=0.15.20",
+    "pre-commit>=4.6.0",
 ]
+
+[tool.ruff.lint]
+extend-select = ["I"]

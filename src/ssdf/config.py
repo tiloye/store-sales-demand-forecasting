@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 ENV_NAME = os.getenv("ENV_NAME", "dev")

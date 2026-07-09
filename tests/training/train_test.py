@@ -1,6 +1,6 @@
 import os
-import tempfile
 import pickle
+import tempfile
 
 import mlflow
 import pandas as pd
@@ -8,7 +8,7 @@ from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
 from ssdf.config import STATIC_FEATURES
-from ssdf.training.train import get_data, get_best_model_run_id_from_mlflow, run
+from ssdf.training.train import get_best_model_run_id_from_mlflow, get_data, run
 
 
 def test_get_data(tmp_path, monkeypatch, training_data):

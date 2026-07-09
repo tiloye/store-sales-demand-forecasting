@@ -154,7 +154,7 @@ def run_tuning(
 
 if __name__ == "__main__":
     from ssdf.config import STATIC_FEATURES
-    from ssdf.training.model import get_model, MODEL_NAME, PARAM_GRID
+    from ssdf.training.model import MODEL_NAME, PARAM_GRID, get_model
     from ssdf.training.train import get_data
 
     df = get_data()

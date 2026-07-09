@@ -1,9 +1,8 @@
 import pandas as pd
-
-from evidently import Dataset, DataDefinition
+from evidently import DataDefinition, Dataset
 
 from ssdf.config import EVIDENTLY_PROJECT_NAME, FH, STATIC_FEATURES
-from ssdf.monitoring.metrics import get_project, generate_drift_snapshot, log_snapshot
+from ssdf.monitoring.metrics import generate_drift_snapshot, get_project, log_snapshot
 from ssdf.training.model import get_model
 from ssdf.training.train import get_data
 

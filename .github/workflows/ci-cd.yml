@@ -56,4 +56,3 @@ jobs:
         with:
           deployment-id: ${{ vars.ASTRO_DEPLOYMENT_ID }}
           wake-on-deploy: true
-

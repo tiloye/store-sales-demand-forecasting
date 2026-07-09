@@ -1,6 +1,6 @@
-from ssdf.config import PROCESSED_DATA_DIR, FEATURES_DATA_DIR
-from ssdf.features.utils import prep_mlforecast_data
+from ssdf.config import FEATURES_DATA_DIR, PROCESSED_DATA_DIR
 from ssdf.data_io import read_data_from_storage, write_data_to_storage
+from ssdf.features.utils import prep_mlforecast_data
 
 
 def create_target():

@@ -1,6 +1,5 @@
-import pytest
 import pandas as pd
-
+import pytest
 
 from ssdf.monitoring.metrics import get_data, get_ref_curr_data
 

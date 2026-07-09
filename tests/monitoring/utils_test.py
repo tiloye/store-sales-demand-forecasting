@@ -1,7 +1,9 @@
+from unittest.mock import Mock
+
 import pytest
 from evidently.ui.workspace import Workspace
-from ssdf.monitoring.utils import get_project, check_prediction_drift
-from unittest.mock import Mock
+
+from ssdf.monitoring.utils import check_prediction_drift, get_project
 
 
 @pytest.fixture

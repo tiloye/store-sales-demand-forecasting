@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from evidently.ui.workspace import Workspace, CloudWorkspace
+from evidently.ui.workspace import CloudWorkspace, Workspace
+
 from ssdf.config import ENV_NAME, EVIDENTLY_ORG_ID
 
 if TYPE_CHECKING:
-    from evidently.ui.workspace import Project
     from evidently.core.report import Snapshot
+    from evidently.ui.workspace import Project
 
 
 def get_workspace() -> Workspace | CloudWorkspace:

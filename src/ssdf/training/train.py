@@ -1,17 +1,18 @@
-import pandas as pd
-import mlflow
 import pickle
+
+import mlflow
+import pandas as pd
 from mlforecast import MLForecast, flavor
 
 from ssdf.config import (
     ENV_NAME,
     FEATURES_DATA_DIR,
-    MLFLOW_TRACKING_URI,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_MODEL_REGISTRY_NAME,
+    MLFLOW_TRACKING_URI,
 )
-from ssdf.training.model import get_model
 from ssdf.data_io import read_data_from_storage
+from ssdf.training.model import get_model
 
 
 def get_best_model_run_id_from_mlflow(experiment_name: str) -> str | None:

@@ -4,7 +4,7 @@ from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 
 from ssdf.config import STATIC_FEATURES
-from ssdf.training.eval import rmsle, get_cv_avg_predictions, run
+from ssdf.training.eval import get_cv_avg_predictions, rmsle, run
 
 
 def test_rmsle():

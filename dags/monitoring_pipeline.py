@@ -1,7 +1,7 @@
 import os
 
-from airflow.sdk import dag, task, Param
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import Param, dag, task
 
 PYTHON_ENVIRONMENT = os.getenv("PYTHON_ENVIRONMENT", "/usr/local/bin/python")
 
@@ -29,9 +29,11 @@ def monitoring_pipeline():
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def get_ref_curr_data(dag_params):
         params = dag_params
-        import pickle
         import base64
+        import pickle
+
         from pandas import Timestamp
+
         from ssdf.monitoring import metrics
 
         print("Getting reference and current data...")
@@ -68,9 +70,11 @@ def monitoring_pipeline():
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_snapshot(serialized_data, dag_params):
         params = dag_params
-        import pickle
         import base64
+        import pickle
+
         from pandas import Timestamp
+
         from ssdf.monitoring import metrics
 
         # Custom deserialization
@@ -88,8 +92,9 @@ def monitoring_pipeline():
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def log_snapshot(serialized_snapshot):
-        import pickle
         import base64
+        import pickle
+
         from ssdf.config import EVIDENTLY_PROJECT_NAME
         from ssdf.monitoring import utils
 
@@ -104,8 +109,9 @@ def monitoring_pipeline():
 
     @task.short_circuit
     def retrain_or_skip(serialized_snapshot, dag_params):
-        import pickle
         import base64
+        import pickle
+
         from ssdf.monitoring import utils
 
         params = dag_params

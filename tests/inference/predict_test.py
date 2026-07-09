@@ -1,14 +1,15 @@
 import mlflow
-import pytest
 import pandas as pd
+import pytest
 from mlforecast import MLForecast, flavor
 from sklearn.dummy import DummyRegressor
+
 from ssdf.config import ENV_NAME, MLFLOW_MODEL_REGISTRY_NAME, STATIC_FEATURES
 from ssdf.inference.predict import (
+    generate_forecasts,
+    get_features,
     get_model,
     get_series_update,
-    get_features,
-    generate_forecasts,
     save_forecasts,
 )
 

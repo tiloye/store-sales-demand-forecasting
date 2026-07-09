@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pandas as pd
+from mlforecast import MLForecast
 from sklearn.metrics import root_mean_squared_log_error
 
-from mlforecast import MLForecast
-from ssdf.config import FH, MLFLOW_TRACKING_URI, MLFLOW_EXPERIMENT_NAME
+from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
 from ssdf.training.utils import (
     get_avg_daily_sales,
     get_train_test_sets,

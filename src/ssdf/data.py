@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from itertools import product
+
 import kagglehub
 import pandas as pd
-from itertools import product
 from dotenv import load_dotenv
-from ssdf.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
-from ssdf.data_io import read_data_from_storage, write_data_to_storage
 
+from ssdf.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
+from ssdf.data_io import read_data_from_storage, write_data_to_storage
 
 load_dotenv()
 
@@ -18,7 +19,9 @@ def get_source_data(path: str | None = None, force_download: bool = False) -> st
     if isinstance(RAW_DATA_DIR, S3Path):
         import os
         import tempfile
+
         import s3fs
+
         from ssdf.config import STORAGE_OPTIONS
 
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -1,5 +1,5 @@
 import pandas as pd
-import pytest
+
 from ssdf.features.feature import create_features, create_target
 
 

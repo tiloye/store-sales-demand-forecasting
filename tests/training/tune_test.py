@@ -1,5 +1,6 @@
-import mlflow
 import pickle
+
+import mlflow
 from mlforecast import MLForecast
 from sklearn.dummy import DummyRegressor
 

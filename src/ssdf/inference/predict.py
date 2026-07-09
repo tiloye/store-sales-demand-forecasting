@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 import pandas as pd
 from mlforecast import flavor
-from ssdf.data_io import read_data_from_storage, write_data_to_storage
+
 from ssdf.config import (
     ENV_NAME,
+    FEATURES_DATA_DIR,
+    FH,
     MLFLOW_MODEL_REGISTRY_NAME,
     PREDICTIONS_DIR,
-    FH,
-    FEATURES_DATA_DIR,
     STATIC_FEATURES,
 )
+from ssdf.data_io import read_data_from_storage, write_data_to_storage
 
 if TYPE_CHECKING:
     from pathlib import Path
+
     from mlforecast import MLForecast
 
 

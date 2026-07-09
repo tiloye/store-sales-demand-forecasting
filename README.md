@@ -54,40 +54,40 @@ Follow the steps below to deploy the project to your Airflow deployment on Astro
 6. Create a repository on Dagshub to serve as the MLflow server.
 7. Create an Evidently AI account.
 8. Clone the repository:
-    
+
     `git clone https://github.com/tiloye/store-sales-demand-forecasting.git`
-    
+
 9. Switch to the project directory.
 10. Create a `.env.prod` file and paste the contents below:
-    
+
     ```bash
     ENV_NAME=prod
-    
+
     KAGGLE_API_TOKEN=YOUR-KAGGLE-API-KEY
-    
+
     MLFLOW_TRACKING_URI=YOUR-DAGSHUB-MLFLOW-TRACKING-URI
     MLFLOW_TRACKING_USERNAME=YOUR-DAGSHUB-USERNAME
     MLFLOW_TRACKING_PASSWORD=YOUR-DAGSHUB-ACCESS-TOKEN
-    
+
     EVIDENTLY_API_KEY=YOUR-EVIDENTLY-API-KEY
     EVIDENTLY_ORG_ID=YOUR-EVIDENTLY-ORGANIZATION-ID
-    
+
     AWS_ENDPOINT_URL=https://s3.amazonaws.com
     AWS_ACCESS_KEY_ID=YOUR-AWS-ACCESS-KEY-ID
     AWS_SECRET_ACCESS_KEY=YOUR-AWS-SECRET-ACCESS-KEY
     AWS_REGION=YOUR-AWS-ACCOUNT-REGION
     S3_BUCKET_NAME=YOUR-S3-BUCKET-NAME
-    
+
     ASTRO_API_TOKEN=YOUR-ASTRO-API-TOKEN
     ASTRO_DEPLOYMENT_ID=YOUR-ASTRO-DEPLOYMENT-ID
     ```
-    
+
 11. Create the environment variables needed for the project in your Airflow deployment:
-    
+
     `make create-astro-deployment-variables ENV=prod`
-    
+
 12. Deploy the project:
-    
+
     `astro deploy YOUR-ASTRO-DEPLOYMENT-ID`
 
 13. Activate the feature, training, inference, and monitoring pipelines in the Airflow UI.
@@ -110,45 +110,45 @@ Follow the steps below to set up the project for local development:
 4. Create a repository on Dagshub to serve as the MLflow server if not already created.
 5. Create an Evidently AI account.
 6. Clone the repository:
-    
+
     `git clone https://github.com/tiloye/store-sales-demand-forecasting.git`
-    
+
 7. Switch to the project directory.
 8. Install the project and its dependencies:
-    
+
     `uv sync`
-    
+
 9. Create data directories:
     - `data/raw`
     - `data/processed`
     - `data/feature_store`
     - `data/predictions`
 10. Create a `.env.dev` file and paste the contents below:
-    
+
     ```bash
     ENV_NAME=dev
-    
+
     KAGGLE_API_TOKEN=YOUR-KAGGLE-API-KEY
-    
+
     MLFLOW_TRACKING_URI=YOUR-DAGSHUB-MLFLOW-TRACKING-URI
     MLFLOW_TRACKING_USERNAME=YOUR-DAGSHUB-USERNAME
     MLFLOW_TRACKING_PASSWORD=YOUR-DAGSHUB-ACCESS-TOKEN
-    
+
     AWS_ENDPOINT_URL=http://localhost:3900 # Garage container endpoint
     AWS_ACCESS_KEY_ID=GK0123456789012345678901234567890123456789 # Garage container custom access key
     AWS_SECRET_ACCESS_KEY=400db5aebbdb6e4d5a9bfe70c7d5277a4be996026f9452d3500ebe2734e4d185 # Garage container custom secret key
     AWS_REGION=garage # Garage container region
     S3_BUCKET_NAME=ssdf-dev # Garage container bucket name
     ```
-    
+
 11. Activate the project environment (depends on your operating system).
 
 12. Run tests:
-    
+
     `make test`
-    
+
 13. Stop the Garage container:
-    
+
     `make stop-garage`
 14. Download the dataset:
     `uv run python src/ssdf/data.py`

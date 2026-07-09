@@ -1,6 +1,7 @@
 import os
-from airflow.sdk import dag, task
+
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.sdk import dag, task
 from pendulum import datetime, duration
 
 PYTHON_ENVIRONMENT = os.getenv("PYTHON_ENVIRONMENT", "/usr/local/bin/python")

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import pandas as pd
-from evidently import Report, Dataset, DataDefinition
+from evidently import DataDefinition, Dataset, Report
 from evidently.presets import DataDriftPreset
+
 from ssdf.config import (
-    FH,
     FEATURES_DATA_DIR,
+    FH,
     PREDICTIONS_DIR,
     STATIC_FEATURES,
 )
-from ssdf.monitoring.utils import get_project, log_snapshot
 from ssdf.data_io import read_data_from_storage
+from ssdf.monitoring.utils import get_project, log_snapshot
 
 
 def generate_drift_snapshot(
