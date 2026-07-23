@@ -7,11 +7,12 @@ import pandas as pd
 from mlforecast import MLForecast
 from sklearn.metrics import root_mean_squared_log_error
 
-from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
+from ssdf.config import FH
 from ssdf.training.utils import (
-    get_avg_daily_sales,
     get_train_test_sets,
+    log_mlflow_figures,
     log_model_artifact,
+    mlflow_run,
 )
 
 
@@ -20,9 +21,19 @@ def rmsle(y_true, y_pred):
     return root_mean_squared_log_error(y_true, y_pred)
 
 
+def get_avg_daily_sales(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Calculates the average daily sales for each store.
+    """
+
+    data = data.groupby(["date"])["sales"].mean().to_frame("avg_sales")
+    return data
+
+
 def get_cv_avg_predictions(
     train: pd.DataFrame, cv_df: pd.DataFrame
 ) -> list[pd.DataFrame]:
+
     cv_df = cv_df.copy()
     cv_df[["store_nbr", "family"]] = cv_df["unique_id"].str.split("_", expand=True)
     cv_df["store_nbr"] = cv_df["store_nbr"].astype(int)
@@ -50,7 +61,14 @@ def get_cv_avg_predictions(
     return comparison_list
 
 
-def plot_avg_sales(data_list: list[pd.DataFrame]):
+def plot_avg_sales(
+    train_df: pd.DataFrame,
+    cv_result: pd.DataFrame | None = None,
+) -> dict[str, plt.Figure]:
+    if cv_result is not None:
+        data_list = get_cv_avg_predictions(train_df, cv_result)
+    else:
+        data_list = [get_avg_daily_sales(train_df)]
     n_plots = len(data_list)
 
     fig = plt.figure(figsize=(12, 5))
@@ -64,6 +82,29 @@ def plot_avg_sales(data_list: list[pd.DataFrame]):
     plt.tight_layout()
     plt.show()
     return fig, ax
+
+
+def compute_cv_metrics(
+    cv_result: pd.DataFrame,
+    backtest: bool = False,
+) -> dict[str, float]:
+
+    # Calculate RMSLE for each fold
+    fold_metrics = []
+    for cutoff in cv_result["cutoff"].unique():
+        fold_df = cv_result[cv_result["cutoff"] == cutoff]
+        score = rmsle(fold_df["sales"], fold_df["forecaster"])
+        fold_metrics.append(score)
+
+    mean_rmsle = max(0, np.mean(fold_metrics))
+    std_rmsle = max(0, np.std(fold_metrics))
+    print("Average RMSLE across all folds:", mean_rmsle)
+    print("Standard deviation of RMSLE across all folds:", std_rmsle)
+    metrics = {
+        f"avg_{'test' if backtest else 'cv'}_rmsle": mean_rmsle,
+        f"std_{'test' if backtest else 'cv'}_rmsle": std_rmsle,
+    }
+    return metrics
 
 
 def cross_validate(
@@ -86,30 +127,10 @@ def cross_validate(
         static_features=static_features,
         refit=refit,
     )
+    eval_metrics = compute_cv_metrics(cv_res, backtest=backtest)
+    eval_plot = {"avg_daily_sales_across_stores": plot_avg_sales(df, cv_res)[0]}
 
-    # Calculate RMSLE for each fold
-    fold_metrics = []
-    for cutoff in cv_res["cutoff"].unique():
-        fold_df = cv_res[cv_res["cutoff"] == cutoff]
-        score = rmsle(fold_df["sales"], fold_df["forecaster"])
-        fold_metrics.append(score)
-
-    mean_rmsle = max(0, np.mean(fold_metrics))
-    std_rmsle = max(0, np.std(fold_metrics))
-    print("Average RMSLE across all folds:", mean_rmsle)
-    print("Standard deviation of RMSLE across all folds:", std_rmsle)
-    metrics = {
-        f"avg_{'test' if backtest else 'cv'}_rmsle": mean_rmsle,
-        f"std_{'test' if backtest else 'cv'}_rmsle": std_rmsle,
-    }
-
-    print(
-        f"Plotting average daily sales across stores for {'test' if backtest else 'cross validation'} result"
-    )
-    comparison_list = get_cv_avg_predictions(df, cv_res)
-    fig, ax = plot_avg_sales(comparison_list)
-    plots = {"avg_daily_sales_across_stores": fig}
-    return metrics, plots
+    return eval_metrics, eval_plot
 
 
 def run(
@@ -123,36 +144,23 @@ def run(
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
 ) -> mlflow.entities.Run:
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+    print("Logging the data to MLflow...")
+    train_df, test_df = get_train_test_sets(df, fh * k)
+    datasets = [
+        (train_df, "training"),
+        (test_df, "testing"),
+    ]
 
-    with mlflow.start_run(run_id=exp_run_id, run_name=exp_run_name) as eval_run:
-        model_name = (
-            forecaster.models["forecaster"].__class__.__name__
-            if model_name is None
-            else model_name
-        )
-        model_params = forecaster.models["forecaster"].get_params()
-        mlflow.set_tag("model_name", model_name)
-        mlflow.log_params(model_params)
-
-        print("Logging the data to MLflow...")
-        train_df, test_df = get_train_test_sets(df, fh * k)
-        train_dataset = mlflow.data.from_pandas(train_df, targets="sales")
-        test_dataset = mlflow.data.from_pandas(test_df, targets="sales")
-        train_dataset_tags = {
-            "start_date": str(train_df["date"].min()),
-            "end_date": str(train_df["date"].max()),
-        }
-        test_dataset_tags = {
-            "start_date": str(test_df["date"].min()),
-            "end_date": str(test_df["date"].max()),
-        }
-        mlflow.log_input(train_dataset, context="training", tags=train_dataset_tags)
-        mlflow.log_input(test_dataset, context="testing", tags=test_dataset_tags)
-
+    with mlflow_run(
+        forecaster,
+        model_name=model_name,
+        run_id=exp_run_id,
+        run_name=exp_run_name,
+        datasets=datasets,
+    ) as eval_run:
         print("Evaluating (cross-validation) forecaster on train set...")
-        metrics, cv_plots = cross_validate(
+
+        eval_metrics, eval_plot = cross_validate(
             forecaster,
             train_df,
             fh=fh,
@@ -161,13 +169,11 @@ def run(
             refit=refit,
             backtest=False,
         )
-        mlflow.log_metrics(metrics)
-        plot_dir = "plots/cv/"
-        for fig_name, fig in cv_plots.items():
-            mlflow.log_figure(fig, f"{plot_dir}{fig_name}.png")
+        mlflow.log_metrics(eval_metrics)
+        log_mlflow_figures(eval_plot, plot_dir="plots/cv/")
 
         print("Evaluating (backtesting) forecaster on test set...")
-        metrics, cv_plots = cross_validate(
+        test_metrics, test_plots = cross_validate(
             forecaster,
             df,
             fh=fh,
@@ -176,10 +182,8 @@ def run(
             refit=refit,
             backtest=True,
         )
-        mlflow.log_metrics(metrics)
-        plot_dir = "plots/test/"
-        for fig_name, fig in cv_plots.items():
-            mlflow.log_figure(fig, f"{plot_dir}{fig_name}.png")
+        mlflow.log_metrics(test_metrics)
+        log_mlflow_figures(test_plots, plot_dir="plots/test/")
 
         log_model_artifact(forecaster)
 

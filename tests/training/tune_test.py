@@ -10,7 +10,7 @@ from ssdf.training.tune import run_tuning
 
 def test_run_tuning(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.tune.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
     forecaster = MLForecast(

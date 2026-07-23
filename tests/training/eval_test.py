@@ -60,7 +60,7 @@ def test_get_cv_avg_predictions(training_data):
 
 def test_run(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.eval.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
     forecaster = MLForecast(

@@ -9,29 +9,10 @@ from ssdf.config import (
     FEATURES_DATA_DIR,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_MODEL_REGISTRY_NAME,
-    MLFLOW_TRACKING_URI,
 )
 from ssdf.data_io import read_data_from_storage
 from ssdf.training.model import get_model
-
-
-def get_best_model_run_id_from_mlflow(experiment_name: str) -> str | None:
-    client = mlflow.MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    if not experiment:
-        return None
-
-    runs = client.search_runs(
-        experiment_ids=[experiment.experiment_id],
-        filter_string="metrics.avg_test_rmsle >= 0",
-        order_by=["metrics.avg_test_rmsle ASC"],
-        max_results=1,
-    )
-
-    if not runs:
-        return None
-
-    return runs[0].info.run_id
+from ssdf.training.utils import get_best_model_run_id_from_mlflow, mlflow_run
 
 
 def get_data() -> pd.DataFrame:
@@ -45,7 +26,7 @@ def get_data() -> pd.DataFrame:
 
 
 def run(
-    df,
+    df: pd.DataFrame,
     static_features: list[str] | None = None,
     model_name: str | None = None,
     exp_run_id: str | None = None,
@@ -53,9 +34,6 @@ def run(
     pull_best_model_artifact: bool = False,
     register_model: bool = False,
 ) -> tuple[MLForecast, mlflow.entities.Run]:
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-
     if pull_best_model_artifact:
         print("Pulling best model artifact from MLflow...")
         best_model_run_id = get_best_model_run_id_from_mlflow(MLFLOW_EXPERIMENT_NAME)
@@ -72,20 +50,13 @@ def run(
     else:
         forecaster = get_model()
 
-    with mlflow.start_run(run_id=exp_run_id, run_name=exp_run_name) as run_env:
-        model_name = (
-            forecaster.models["forecaster"].__class__.__name__
-            if model_name is None
-            else model_name
-        )
-        model_params = forecaster.models["forecaster"].get_params()
-        mlflow.set_tag("model_name", model_name)
-        mlflow.log_params(model_params)
-
-        print("Logging training data to MLflow")
-        dataset = mlflow.data.from_pandas(df, targets="sales")
-        mlflow.log_input(dataset, context="training")
-
+    with mlflow_run(
+        forecaster,
+        model_name=model_name,
+        run_id=exp_run_id,
+        run_name=exp_run_name,
+        datasets=[(df, "training")],
+    ) as run_env:
         print("Training the forecaster")
         forecaster.fit(
             df,

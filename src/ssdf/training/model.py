@@ -24,6 +24,5 @@ def get_model() -> MLForecast:
         freq="D",
         lags=list(range(1, 17)),
         date_features=["dayofweek"],
-        num_threads=4,
     )
     return forecaster

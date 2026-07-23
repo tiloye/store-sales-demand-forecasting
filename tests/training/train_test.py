@@ -25,7 +25,7 @@ def test_get_data(tmp_path, monkeypatch, training_data):
 
 def test_get_best_model_run_id_from_mlflow(training_data, monkeypatch, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
@@ -49,7 +49,7 @@ def test_start_new_run(monkeypatch, training_data, mlflow_configs):
         "ssdf.training.train.get_data", lambda *args, **kwargs: training_data
     )
     monkeypatch.setattr(
-        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
     forecaster, mlflow_run = run(training_data, static_features=STATIC_FEATURES)
@@ -65,7 +65,7 @@ def test_start_new_run(monkeypatch, training_data, mlflow_configs):
 
 def test_continue_run(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
 
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
@@ -103,7 +103,7 @@ def test_pull_best_model(monkeypatch, training_data, mlflow_configs):
         "ssdf.training.train.get_data", lambda *args, **kwargs: training_data
     )
     monkeypatch.setattr(
-        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
     mlflow.set_tracking_uri(mlflow_configs["tracking_uri"])
     mlflow.set_experiment(mlflow_configs["experiment_name"])
@@ -134,7 +134,7 @@ def test_pull_best_model(monkeypatch, training_data, mlflow_configs):
 
 def test_register_model(monkeypatch, training_data, mlflow_configs):
     monkeypatch.setattr(
-        "ssdf.training.train.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
+        "ssdf.training.utils.MLFLOW_TRACKING_URI", mlflow_configs["tracking_uri"]
     )
     monkeypatch.setattr(
         "ssdf.training.train.get_data", lambda *args, **kwargs: training_data

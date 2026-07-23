@@ -8,9 +8,14 @@ from joblib import Parallel, delayed
 from mlforecast import MLForecast
 from sklearn.model_selection import ParameterGrid
 
-from ssdf.config import FH, MLFLOW_EXPERIMENT_NAME, MLFLOW_TRACKING_URI
+from ssdf.config import FH
 from ssdf.training.eval import cross_validate
-from ssdf.training.utils import get_train_test_sets, log_model_artifact
+from ssdf.training.utils import (
+    get_train_test_sets,
+    log_mlflow_figures,
+    log_model_artifact,
+    mlflow_run,
+)
 
 
 def _eval_param_set(
@@ -48,8 +53,7 @@ def _eval_param_set(
         )
 
         mlflow.log_metrics(metrics)
-        for fig_name, fig in cv_plots.items():
-            mlflow.log_figure(fig, f"plots/cv/{fig_name}.png")
+        log_mlflow_figures(cv_plots, plot_dir="plots/cv/")
 
         score = metrics["avg_cv_rmsle"]
 
@@ -68,30 +72,19 @@ def run_tuning(
     model_name: str | None = None,
     exp_run_name: str | None = None,
 ) -> tuple[dict, mlflow.entities.Run]:
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
-
     print("Splitting data into train and test sets...")
     train, test = get_train_test_sets(df, test_size=fh * k)
 
     best_score = float("inf")
     best_params = None
 
-    with mlflow.start_run(run_name=exp_run_name) as parent_run:
-        print("Logging the data to MLflow...")
-        train_dataset = mlflow.data.from_pandas(train, targets="sales")
-        test_dataset = mlflow.data.from_pandas(test, targets="sales")
-        train_dataset_tags = {
-            "start_date": str(train["date"].min()),
-            "end_date": str(train["date"].max()),
-        }
-        test_dataset_tags = {
-            "start_date": str(test["date"].min()),
-            "end_date": str(test["date"].max()),
-        }
-        mlflow.log_input(train_dataset, context="train", tags=train_dataset_tags)
-        mlflow.log_input(test_dataset, context="test", tags=test_dataset_tags)
-
+    with mlflow_run(
+        forecaster,
+        model_name=model_name,
+        run_name=exp_run_name,
+        datasets=[(train, "train"), (test, "test")],
+        log_model_metadata=False,
+    ) as parent_run:
         tracking_uri = mlflow.get_tracking_uri()
         experiment_id = parent_run.info.experiment_id
         parent_run_id = parent_run.info.run_id
@@ -142,11 +135,9 @@ def run_tuning(
             backtest=True,
         )
         mlflow.log_metrics(test_rmsle)
-        for fig_name, fig in test_plots.items():
-            mlflow.log_figure(fig, f"plots/test/{fig_name}.png")
+        log_mlflow_figures(test_plots, plot_dir="plots/test/")
 
         print("Logging best model artifact to MLflow...")
-        model_name = model_name or forecaster.models["forecaster"].__class__.__name__
         log_model_artifact(forecaster)
 
     return best_params, mlflow.get_run(parent_run.info.run_id)
