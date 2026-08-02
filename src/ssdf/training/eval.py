@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
@@ -64,7 +66,7 @@ def get_cv_avg_predictions(
 def plot_avg_sales(
     train_df: pd.DataFrame,
     cv_result: pd.DataFrame | None = None,
-) -> dict[str, plt.Figure]:
+) -> tuple[plt.Figure, plt.Axes]:
     if cv_result is not None:
         data_list = get_cv_avg_predictions(train_df, cv_result)
     else:
@@ -144,6 +146,8 @@ def run(
     exp_run_id: str | None = None,
     exp_run_name: str | None = None,
 ) -> mlflow.entities.Run:
+    forecaster_copy = copy.deepcopy(forecaster)
+
     print("Logging the data to MLflow...")
     train_df, test_df = get_train_test_sets(df, fh * k)
     datasets = [
@@ -152,7 +156,7 @@ def run(
     ]
 
     with mlflow_run(
-        forecaster,
+        forecaster_copy,
         model_name=model_name,
         run_id=exp_run_id,
         run_name=exp_run_name,
@@ -161,7 +165,7 @@ def run(
         print("Evaluating (cross-validation) forecaster on train set...")
 
         eval_metrics, eval_plot = cross_validate(
-            forecaster,
+            forecaster_copy,
             train_df,
             fh=fh,
             k=k,
@@ -174,7 +178,7 @@ def run(
 
         print("Evaluating (backtesting) forecaster on test set...")
         test_metrics, test_plots = cross_validate(
-            forecaster,
+            forecaster_copy,
             df,
             fh=fh,
             k=k,

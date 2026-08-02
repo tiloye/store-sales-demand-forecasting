@@ -32,8 +32,7 @@ def _eval_param_set(
 ):
     mlflow.set_tracking_uri(tracking_uri)
 
-    forecaster_copy = copy.deepcopy(forecaster)
-    model = forecaster_copy.models["forecaster"]
+    model = forecaster.models["forecaster"]
     model.set_params(**params)
 
     with mlflow.start_run(
@@ -44,7 +43,7 @@ def _eval_param_set(
         mlflow.log_params(model.get_params())
         print(f"Evaluating parameters: {params}")
         metrics, cv_plots = cross_validate(
-            forecaster_copy,
+            forecaster,
             train,
             fh=fh,
             k=k,
@@ -72,14 +71,16 @@ def run_tuning(
     model_name: str | None = None,
     exp_run_name: str | None = None,
 ) -> tuple[dict, mlflow.entities.Run]:
+    forecaster_copy = copy.deepcopy(forecaster)
+
     print("Splitting data into train and test sets...")
     train, test = get_train_test_sets(df, test_size=fh * k)
 
     best_score = float("inf")
-    best_params = None
+    best_params = {}
 
     with mlflow_run(
-        forecaster,
+        forecaster_copy,
         model_name=model_name,
         run_name=exp_run_name,
         datasets=[(train, "train"), (test, "test")],
@@ -92,7 +93,7 @@ def run_tuning(
         results = Parallel(n_jobs=n_jobs)(
             delayed(_eval_param_set)(
                 params,
-                forecaster,
+                forecaster_copy,
                 train,
                 fh,
                 k,
@@ -122,11 +123,11 @@ def run_tuning(
         mlflow.log_metric("best_avg_cv_rmsle", best_score)
 
         print("Evaluating best model on test set...")
-        forecaster.models["forecaster"].set_params(**best_params)
+        forecaster_copy.models["forecaster"].set_params(**best_params)
         mlflow.log_params(forecaster.models["forecaster"].get_params())
 
         test_rmsle, test_plots = cross_validate(
-            forecaster,
+            forecaster_copy,
             df,
             fh=fh,
             k=k,
@@ -138,6 +139,7 @@ def run_tuning(
         log_mlflow_figures(test_plots, plot_dir="plots/test/")
 
         print("Logging best model artifact to MLflow...")
+        forecaster.models["forecaster"].set_params(**best_params)
         log_model_artifact(forecaster)
 
     return best_params, mlflow.get_run(parent_run.info.run_id)
