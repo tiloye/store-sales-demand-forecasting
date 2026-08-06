@@ -10,6 +10,7 @@ airflow.cfg
 notebooks/
 mlartifacts/
 mlflow.db
+mlruns/
 .evidently_workspace/
 .pytest_cache/
 data/

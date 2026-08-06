@@ -29,9 +29,9 @@ stop-astro-airflow-standalone:
 run-astro-dev-test: start-garage start-astro-airflow-standalone
 	astro dev pytest --standalone
 
-start-local-mlflow-server:
+start-test-mlflow-server:
 	mlflow server \
-	    --backend-store-uri sqlite:///mlflow.db --port 5000
+	    --backend-store-uri sqlite:////tmp/mlflow/mlflow.db --port 5000
 
 create-astro-deployment-variables:
 	astro deployment variable create \

@@ -34,6 +34,6 @@ def training_data():
 @pytest.fixture
 def mlflow_configs():
     return {
-        "tracking_uri": "file:///tmp/mlflow_tracking",
+        "tracking_uri": "sqlite:////tmp/mlflow/mlflow.db",
         "experiment_name": "Store Sales Demand Forecasting",
     }
