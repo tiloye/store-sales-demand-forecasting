@@ -28,11 +28,11 @@ def feature_pipeline():
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def process_raw_data(dag_params):
-        from ssdf import data
+        from ssdf.data import run
 
         path = dag_params["path"]
         force_download = dag_params["force_download"]
-        data.run(path=path, force_download=force_download)
+        run.run(path=path, force_download=force_download)
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_target():
