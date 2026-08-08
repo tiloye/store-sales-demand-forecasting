@@ -42,9 +42,10 @@ def feature_pipeline():
 
     @task.external_python(python=PYTHON_ENVIRONMENT)
     def generate_features():
-        from ssdf.features.feature import create_features
+        from ssdf.config import FH
+        from ssdf.features.feature import DEFAULT_FEATURE_FUNCS, create_features
 
-        create_features()
+        create_features(FH, DEFAULT_FEATURE_FUNCS)
 
     trigger_inference = TriggerDagRunOperator(
         task_id="trigger_inference_pipeline",

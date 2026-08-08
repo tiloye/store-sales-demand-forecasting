@@ -4,7 +4,12 @@ import pandas as pd
 
 from ssdf.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 from ssdf.data.ingest import get_source_data
-from ssdf.data.transform import wrangle_train_test
+from ssdf.data.transform import (
+    wrangle_holidays_events,
+    wrangle_stores,
+    wrangle_train_test,
+    wrangle_transactions,
+)
 from ssdf.data_io import read_data_from_storage, write_data_to_storage
 
 
@@ -43,6 +48,33 @@ def run(path: str | None = None, force_download: bool = False) -> None:
         promotions, PROCESSED_DATA_DIR / "promotions.parquet", index=False
     )
     print("Successfully saved promotions data")
+
+    print("Wrangling transactions data...")
+    transactions_df = read_data_from_storage(RAW_DATA_DIR / "transactions.csv")
+    transactions_df = wrangle_transactions(transactions_df)
+    print("Successfully wrangled transactions data")
+
+    print("Saving transactions data...")
+    write_data_to_storage(
+        transactions_df, PROCESSED_DATA_DIR / "transactions.parquet", index=False
+    )
+    print("Successfully saved transactions data")
+
+    print("Wrangling holiday events data...")
+    holidays_df = read_data_from_storage(RAW_DATA_DIR / "holidays_events.csv")
+    holidays_df = wrangle_holidays_events(holidays_df)
+    print("Saving holiday events data...")
+    write_data_to_storage(
+        holidays_df, PROCESSED_DATA_DIR / "holidays_events.parquet", index=False
+    )
+    print("Successfully saved holiday events data")
+
+    print("Wrangling stores data...")
+    stores_df = read_data_from_storage(RAW_DATA_DIR / "stores.csv")
+    stores_df = wrangle_stores(stores_df)
+    print("Saving stores data...")
+    write_data_to_storage(stores_df, PROCESSED_DATA_DIR / "stores.parquet", index=False)
+    print("Successfully stores data")
 
 
 if __name__ == "__main__":
